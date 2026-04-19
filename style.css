@@ -1,0 +1,165 @@
+:root {
+  --bg-1: #f3f8ff;
+  --bg-2: #ffeede;
+  --ink: #10223a;
+  --muted: #3f536f;
+  --accent: #ff6a3d;
+  --card: rgba(255, 255, 255, 0.72);
+  --ring: rgba(16, 34, 58, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: "Manrope", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 10% 10%, #d7e8ff 0%, transparent 36%),
+    radial-gradient(circle at 90% 20%, #ffd6bf 0%, transparent 34%),
+    linear-gradient(135deg, var(--bg-1), var(--bg-2));
+  display: grid;
+  place-items: center;
+  overflow-x: hidden;
+}
+
+.bg-shape {
+  position: fixed;
+  border-radius: 999px;
+  z-index: 0;
+  filter: blur(24px);
+  opacity: 0.45;
+}
+
+.bg-shape-a {
+  width: 280px;
+  height: 280px;
+  top: -70px;
+  left: -70px;
+  background: #8ab7ff;
+}
+
+.bg-shape-b {
+  width: 340px;
+  height: 340px;
+  bottom: -120px;
+  right: -90px;
+  background: #ffad88;
+}
+
+.container {
+  position: relative;
+  z-index: 1;
+  width: min(920px, 92vw);
+  margin: 3rem auto;
+  padding: 2.2rem;
+  border: 1px solid var(--ring);
+  border-radius: 20px;
+  background: var(--card);
+  backdrop-filter: blur(10px);
+  animation: rise 700ms ease both;
+}
+
+.eyebrow {
+  margin: 0 0 0.5rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+h1 {
+  margin: 0;
+  font-family: "Playfair Display", serif;
+  font-size: clamp(1.9rem, 3.8vw, 3rem);
+  line-height: 1.14;
+}
+
+.lead {
+  margin-top: 1rem;
+  color: var(--muted);
+  max-width: 62ch;
+}
+
+.card-row {
+  margin-top: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.card {
+  padding: 1rem 1rem 0.9rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid var(--ring);
+  transform: translateY(10px);
+  opacity: 0;
+  animation: rise 700ms ease both;
+}
+
+.card:nth-child(1) {
+  animation-delay: 120ms;
+}
+
+.card:nth-child(2) {
+  animation-delay: 220ms;
+}
+
+.card h2 {
+  margin: 0;
+  font-size: 1.03rem;
+}
+
+.card p {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.cta {
+  margin-top: 1.7rem;
+  display: inline-block;
+  text-decoration: none;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #ff7b4f, var(--accent));
+  padding: 0.75rem 1.1rem;
+  border-radius: 999px;
+  box-shadow: 0 10px 24px rgba(255, 106, 61, 0.35);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(255, 106, 61, 0.45);
+}
+
+@keyframes rise {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 760px) {
+  .container {
+    padding: 1.3rem;
+    margin: 1.3rem auto;
+  }
+
+  .card-row {
+    grid-template-columns: 1fr;
+  }
+}
