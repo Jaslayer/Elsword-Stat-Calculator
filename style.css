@@ -1,11 +1,8 @@
 :root {
-  --bg-1: #f3f8ff;
-  --bg-2: #ffeede;
-  --ink: #10223a;
-  --muted: #3f536f;
-  --accent: #ff6a3d;
-  --card: rgba(255, 255, 255, 0.72);
-  --ring: rgba(16, 34, 58, 0.08);
+  --bg-1: #1b2331;
+  --bg-2: #0f1621;
+  --card: rgba(200, 205, 212, 0.68);
+  --ring: rgba(255, 255, 255, 0.24);
 }
 
 * {
@@ -20,126 +17,188 @@ body {
 
 body {
   font-family: "Manrope", sans-serif;
-  color: var(--ink);
   background:
-    radial-gradient(circle at 10% 10%, #d7e8ff 0%, transparent 36%),
-    radial-gradient(circle at 90% 20%, #ffd6bf 0%, transparent 34%),
+    radial-gradient(circle at 10% 10%, #344761 0%, transparent 36%),
+    radial-gradient(circle at 90% 20%, #253247 0%, transparent 34%),
     linear-gradient(135deg, var(--bg-1), var(--bg-2));
-  display: grid;
+  display: flex;
+  flex-direction: column;
   place-items: center;
   overflow-x: hidden;
+  min-height: 100vh;
 }
 
-.bg-shape {
-  position: fixed;
-  border-radius: 999px;
-  z-index: 0;
-  filter: blur(24px);
-  opacity: 0.45;
+.page-header {
+  width: 100%;
+  padding: 3rem 2rem 1.5rem;
+  text-align: center;
+  background: linear-gradient(135deg, rgba(27, 35, 49, 0.1), rgba(27, 35, 49, 0.05));
+  backdrop-filter: blur(8px);
 }
 
-.bg-shape-a {
-  width: 280px;
-  height: 280px;
-  top: -70px;
-  left: -70px;
-  background: #8ab7ff;
+.page-title {
+  margin: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 1), rgba(150, 190, 255, 0.9));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 2.5rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  animation: slideDown 600ms ease-out;
+  filter: drop-shadow(0 2px 10px rgba(100, 150, 200, 0.4));
 }
 
-.bg-shape-b {
-  width: 340px;
-  height: 340px;
-  bottom: -120px;
-  right: -90px;
-  background: #ffad88;
+.page-title .version {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: rgba(100, 150, 200, 1);
+  -webkit-text-fill-color: rgba(100, 150, 200, 1);
+  margin-left: 0.5rem;
+  display: inline-block;
+  animation: fadeIn 800ms ease-out 200ms both;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .container {
   position: relative;
-  z-index: 1;
-  width: min(920px, 92vw);
-  margin: 3rem auto;
-  padding: 2.2rem;
+  width: min(1380px, 98vw);
+  margin: 0 auto 3rem;
+  min-height: calc(100vh - 200px);
+  padding: 2rem;
   border: 1px solid var(--ring);
   border-radius: 20px;
   background: var(--card);
   backdrop-filter: blur(10px);
-  animation: rise 700ms ease both;
-}
-
-.eyebrow {
-  margin: 0 0 0.5rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  font-size: 0.78rem;
-  color: var(--muted);
-}
-
-h1 {
-  margin: 0;
-  font-family: "Playfair Display", serif;
-  font-size: clamp(1.9rem, 3.8vw, 3rem);
-  line-height: 1.14;
-}
-
-.lead {
-  margin-top: 1rem;
-  color: var(--muted);
-  max-width: 62ch;
-}
-
-.card-row {
-  margin-top: 1.5rem;
+  animation: rise 700ms ease both 300ms;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  grid-template-columns: 25% 1fr;
+  gap: 1.5rem;
 }
 
-.card {
-  padding: 1rem 1rem 0.9rem;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.86);
-  border: 1px solid var(--ring);
-  transform: translateY(10px);
-  opacity: 0;
-  animation: rise 700ms ease both;
+.sidebar {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
 }
 
-.card:nth-child(1) {
-  animation-delay: 120ms;
-}
-
-.card:nth-child(2) {
-  animation-delay: 220ms;
-}
-
-.card h2 {
+.stat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
   margin: 0;
-  font-size: 1.03rem;
+  padding: 0;
+  list-style: none;
 }
 
-.card p {
-  margin: 0.5rem 0 0;
-  color: var(--muted);
-  font-size: 0.95rem;
+.stat-item {
+  padding: 0.9rem 1rem;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  color: #1b2331;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Manrope", sans-serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 180ms ease;
+  letter-spacing: 0.3px;
 }
 
-.cta {
-  margin-top: 1.7rem;
-  display: inline-block;
-  text-decoration: none;
-  font-weight: 700;
-  color: #fff;
-  background: linear-gradient(135deg, #ff7b4f, var(--accent));
-  padding: 0.75rem 1.1rem;
-  border-radius: 999px;
-  box-shadow: 0 10px 24px rgba(255, 106, 61, 0.35);
-  transition: transform 180ms ease, box-shadow 180ms ease;
+.stat-item:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
-.cta:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 30px rgba(255, 106, 61, 0.45);
+.stat-item:active,
+.stat-item:focus {
+  background: rgba(255, 255, 255, 0.4);
+  border-color: rgba(255, 255, 255, 0.5);
+  outline: none;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.stat-item.selected {
+  background: rgba(100, 150, 200, 0.5);
+  border-color: rgba(100, 150, 200, 0.8);
+}
+
+.content {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.description-panel {
+  position: absolute;
+  width: 280px;
+  padding: 1.5rem;
+  background: rgba(27, 35, 49, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  opacity: 0;
+  transition: opacity 200ms ease;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.description-panel::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.description-panel::after {
+  content: '';
+  position: absolute;
+  left: -20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.description-panel.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.description-panel p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1rem;
+  line-height: 1.6;
 }
 
 @keyframes rise {
@@ -157,9 +216,6 @@ h1 {
   .container {
     padding: 1.3rem;
     margin: 1.3rem auto;
-  }
-
-  .card-row {
-    grid-template-columns: 1fr;
+    min-height: 60vh;
   }
 }

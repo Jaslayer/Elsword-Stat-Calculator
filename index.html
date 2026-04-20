@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My GitHub Page</title>
+    <title>裝備配置計算機Ver2.0</title>
     <meta
       name="description"
       content="A basic GitHub Pages site starter."
@@ -17,30 +17,74 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <div class="bg-shape bg-shape-a"></div>
-    <div class="bg-shape bg-shape-b"></div>
-
-    <main class="container">
-      <p class="eyebrow">GitHub Pages Starter</p>
-      <h1>你好，這是你的第一個 GitHub Page</h1>
-      <p class="lead">
-        這個頁面是靜態網站範本，放到 GitHub 後可以直接發佈。
-      </p>
-
-      <section class="card-row" aria-label="Quick links">
-        <article class="card">
-          <h2>編輯內容</h2>
-          <p>修改這個檔案中的文字、標題與連結，做成你的個人頁面。</p>
-        </article>
-        <article class="card">
-          <h2>新增專案</h2>
-          <p>你可以在這裡放上作品集、履歷連結或聯絡方式。</p>
-        </article>
+    <header class="page-header">
+      <h1 class="page-title">裝備配置計算機<span class="version">Ver2.0</span></h1>
+    </header>
+    <main class="container" aria-label="Main panel">
+      <aside class="sidebar">
+        <nav class="stat-list" aria-label="Statistics list">
+          <button class="stat-item" data-description="含%攻比較">物/魔攻擊力</button>
+          <button class="stat-item" data-description="">致命一擊傷害</button>
+          <button class="stat-item" data-description="">Boss 傷害</button>
+          <button class="stat-item" data-description="">兩極化</button>
+          <button class="stat-item" data-description="">強烈/超越技傷</button>
+          <button class="stat-item" data-description="">所有技傷</button>
+          <button class="stat-item" data-description="">流血</button>
+          <button class="stat-item" data-description="">100%以下</button>
+          <button class="stat-item" data-description="">50%以上/以下</button>
+          <button class="stat-item" data-description='含"超適應力"'>適應力</button>
+          <button class="stat-item" data-description="">其他</button>
+        </nav>
+      </aside>
+      <section class="content" aria-label="Content area">
+        <div class="description-panel" id="descriptionPanel">
+          <p>群母上的风桌選手</p>
+        </div>
       </section>
-
-      <a class="cta" href="https://github.com/new" target="_blank" rel="noreferrer">
-        前往建立 GitHub Repo
-      </a>
     </main>
+    <script>
+      const statItems = document.querySelectorAll('.stat-item');
+      
+      // 初始化遊戲數值狀態陣列，每個位置對應一個數值是否被選中
+      const selectedGameStats = new Array(statItems.length).fill(false);
+
+      const descriptionPanel = document.getElementById('descriptionPanel');
+      const descriptionText = descriptionPanel.querySelector('p');
+
+      statItems.forEach(item => {
+        item.addEventListener('mouseenter', (e) => {
+          const description = e.target.getAttribute('data-description');
+          descriptionText.textContent = description || '選項說明';
+          
+          const rect = e.target.getBoundingClientRect();
+          const containerRect = document.querySelector('.container').getBoundingClientRect();
+          const panelLeft = rect.right - containerRect.left + 5;
+          const panelTop = rect.top - containerRect.top + rect.height / 2 - descriptionPanel.offsetHeight / 2;
+          
+          descriptionPanel.style.left = panelLeft + 'px';
+          descriptionPanel.style.top = panelTop + 'px';
+          descriptionPanel.classList.add('show');
+        });
+
+        item.addEventListener('mouseleave', () => {
+          descriptionPanel.classList.remove('show');
+        });
+
+        item.addEventListener('click', (e) => {
+          const itemIndex = Array.from(statItems).indexOf(e.target);
+          
+          // Toggle selected 狀態
+          e.target.classList.toggle('selected');
+          
+          // 移除焦點，使按鈕立即回復到正常樣式
+          e.target.blur();
+          
+          // 更新遊戲數值選取狀態陣列
+          selectedGameStats[itemIndex] = !selectedGameStats[itemIndex];
+          
+          console.log('當前選中的遊戲數值:', selectedGameStats);
+        });
+      });
+    </script>
   </body>
 </html>
