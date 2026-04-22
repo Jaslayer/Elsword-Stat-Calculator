@@ -23,7 +23,7 @@
     <main class="container" aria-label="Main panel">
       <aside class="sidebar">
         <nav class="stat-list" aria-label="Statistics list">
-          <button class="stat-item" data-description="含%攻比較">物/魔攻擊力</button>
+          <button class="stat-item" data-description="">物/魔攻擊力、%攻</button>
           <button class="stat-item" data-description="">致命一擊傷害</button>
           <button class="stat-item" data-description="">Boss 傷害</button>
           <button class="stat-item" data-description="">兩極化</button>
@@ -35,6 +35,8 @@
           <button class="stat-item" data-description='含"超適應力"'>適應力</button>
           <button class="stat-item" data-description="">其他</button>
         </nav>
+        <div class="calc-panel" id="calcPanel">
+        </div>
       </aside>
       <section class="content" aria-label="Content area">
         <div class="description-panel" id="descriptionPanel">
@@ -44,17 +46,34 @@
     </main>
     <script>
       const statItems = document.querySelectorAll('.stat-item');
+      const STORAGE_KEY = 'selectedGameStats';
       
       // 初始化遊戲數值狀態陣列，每個位置對應一個數值是否被選中
-      const selectedGameStats = new Array(statItems.length).fill(false);
+      // 優先從 localStorage 讀取，如果沒有則初始化為 false
+      let selectedGameStats = localStorage.getItem(STORAGE_KEY)
+        ? JSON.parse(localStorage.getItem(STORAGE_KEY))
+        : new Array(statItems.length).fill(false);
 
       const descriptionPanel = document.getElementById('descriptionPanel');
       const descriptionText = descriptionPanel.querySelector('p');
 
+      // 根據保存的狀態恢復按鈕的視覺狀態
+      statItems.forEach((item, index) => {
+        if (selectedGameStats[index]) {
+          item.classList.add('selected');
+        }
+      });
+
       statItems.forEach(item => {
         item.addEventListener('mouseenter', (e) => {
           const description = e.target.getAttribute('data-description');
-          descriptionText.textContent = description || '選項說明';
+          
+          // 如果 data-description 為空，則不開啟懸浮視窗
+          if (!description) {
+            return;
+          }
+          
+          descriptionText.textContent = description;
           
           const rect = e.target.getBoundingClientRect();
           const containerRect = document.querySelector('.container').getBoundingClientRect();
@@ -82,9 +101,143 @@
           // 更新遊戲數值選取狀態陣列
           selectedGameStats[itemIndex] = !selectedGameStats[itemIndex];
           
+          // 保存到 localStorage
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(selectedGameStats));
+          
+          // 更新輸入面板
+          updateInputPanel();
+          
           console.log('當前選中的遊戲數值:', selectedGameStats);
         });
       });
+
+      // 更新輸入面板的函數
+      function updateInputPanel() {
+        const calcPanel = document.getElementById('calcPanel');
+        let wrapper = calcPanel.querySelector('.input-items-wrapper');
+        
+        // 如果不存在包裝容器，創建它
+        if (!wrapper) {
+          wrapper = document.createElement('div');
+          wrapper.className = 'input-items-wrapper';
+          calcPanel.insertBefore(wrapper, calcPanel.firstChild);
+        }
+        
+        // 獲取應該存在的 stat-item 索引
+        const shouldExistIndices = [];
+        statItems.forEach((item, index) => {
+          if (selectedGameStats[index]) {
+            shouldExistIndices.push(index);
+          }
+        });
+        
+        // 獲取當前存在的 panel 索引
+        const currentPanels = wrapper.querySelectorAll('.input-panel-item');
+        const currentIndices = Array.from(currentPanels).map(panel => parseInt(panel.dataset.index));
+        
+        // 找出需要刪除的 panels
+        currentIndices.forEach((index) => {
+          if (!shouldExistIndices.includes(index)) {
+            const panel = wrapper.querySelector(`[data-index="${index}"]`);
+            if (panel) {
+              panel.classList.add('removing');
+              setTimeout(() => {
+                panel.remove();
+                // 刪除後延遲計算高度，等待動畫完成
+                setTimeout(updatePanelHeight, 50);
+              }, 300);
+            }
+          }
+        });
+        
+        // 找出需要添加的 panels
+        shouldExistIndices.forEach((index) => {
+          if (!currentIndices.includes(index)) {
+            const statItem = statItems[index];
+            createInputPanel(statItem, index, wrapper);
+          }
+        });
+        
+        // 添加或修改時延遲計算高度，等待動畫開始並有時間計算
+        setTimeout(updatePanelHeight, 320);
+      }
+      
+      // 更新 calc-panel 的高度
+      function updatePanelHeight() {
+        const calcPanel = document.getElementById('calcPanel');
+        const wrapper = calcPanel.querySelector('.input-items-wrapper');
+        
+        if (!wrapper || wrapper.children.length === 0) {
+          // 沒有內容，縮到最小（只剩 margin）
+          calcPanel.style.height = '0px';
+          calcPanel.style.padding = '0px';
+          calcPanel.style.gap = '0px';
+        } else {
+          // 恢復 padding 和 gap
+          calcPanel.style.padding = '1.2rem';
+          calcPanel.style.gap = '0.8rem';
+          
+          // 使用多次 requestAnimationFrame 確保布局穩定後再計算
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              const styles = window.getComputedStyle(calcPanel);
+              const paddingTop = parseFloat(styles.paddingTop) || 0;
+              const paddingBottom = parseFloat(styles.paddingBottom) || 0;
+              const wrapperHeight = wrapper.scrollHeight;
+              // 加上 10px 的 buffer 確保不會覆蓋到 input-panel
+              const totalHeight = wrapperHeight + paddingTop + paddingBottom + 10;
+              
+              calcPanel.style.height = totalHeight + 'px';
+            });
+          });
+        }
+      }
+
+      // 為每個被選中的 stat-item 創建一個 input-panel
+      function createInputPanel(statItem, index, container) {
+        const panelDiv = document.createElement('div');
+        panelDiv.className = 'input-panel-item';
+        panelDiv.dataset.index = index;
+        
+        panelDiv.innerHTML = `
+          <div class="panel-row">
+            <div class="panel-label">${statItem.textContent}</div>
+            <input type="number" class="stat-input short-input left-input" placeholder="基礎" data-index="${index}" />
+            <input type="number" class="stat-input short-input middle-input" placeholder="增加" data-index="${index}" />
+            <input type="number" class="stat-input short-input result-input" placeholder="結果" readonly data-index="${index}" />
+            <button class="input-item-remove" data-index="${index}">移除</button>
+          </div>
+        `;
+        
+        container.appendChild(panelDiv);
+        
+        // 綁定計算事件
+        const leftInput = panelDiv.querySelector('.left-input');
+        const middleInput = panelDiv.querySelector('.middle-input');
+        const resultInput = panelDiv.querySelector('.result-input');
+        
+        [leftInput, middleInput].forEach(input => {
+          input.addEventListener('input', () => {
+            const leftValue = parseFloat(leftInput.value) || 0;
+            const middleValue = parseFloat(middleInput.value) || 0;
+            resultInput.value = leftValue + middleValue;
+          });
+        });
+        
+        // 綁定移除按鈕事件
+        const removeBtn = panelDiv.querySelector('.input-item-remove');
+        removeBtn.addEventListener('click', () => {
+          statItems[index].classList.remove('selected');
+          selectedGameStats[index] = false;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(selectedGameStats));
+          updateInputPanel();
+        });
+      }
+
+      // 初始化時如果有被選中的項目，就更新輸入面板
+      if (selectedGameStats.some(stat => stat === true)) {
+        updateInputPanel();
+      }
     </script>
   </body>
 </html>
