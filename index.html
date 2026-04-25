@@ -23,16 +23,16 @@
     <main class="container" aria-label="Main panel">
       <aside class="sidebar">
         <nav class="stat-list" aria-label="Statistics list">
-          <button class="stat-item" data-description="">物/魔攻擊力、%攻</button>
+          <button class="stat-item" data-description="">物/魔攻擊力</button>
+          <button class="stat-item" data-description='含"超適應力"'>適應力</button>
           <button class="stat-item" data-description="">致命一擊傷害</button>
-          <button class="stat-item" data-description="">Boss 傷害</button>
           <button class="stat-item" data-description="">兩極化</button>
+          <button class="stat-item" data-description="">Boss 傷害</button>
+          <button class="stat-item" data-description="">50%以上/以下</button>
+          <button class="stat-item" data-description="">100%以下</button>
+          <button class="stat-item" data-description="">流血</button>
           <button class="stat-item" data-description="">強烈/超越技傷</button>
           <button class="stat-item" data-description="">所有技傷</button>
-          <button class="stat-item" data-description="">流血</button>
-          <button class="stat-item" data-description="">100%以下</button>
-          <button class="stat-item" data-description="">50%以上/以下</button>
-          <button class="stat-item" data-description='含"超適應力"'>適應力</button>
           <button class="stat-item" data-description="">其他</button>
         </nav>
         <div class="calc-panel" id="calcPanel">
@@ -56,6 +56,7 @@
 
       const descriptionPanel = document.getElementById('descriptionPanel');
       const descriptionText = descriptionPanel.querySelector('p');
+
 
       // 根據保存的狀態恢復按鈕的視覺狀態
       statItems.forEach((item, index) => {
@@ -135,109 +136,301 @@
         const currentPanels = wrapper.querySelectorAll('.input-panel-item');
         const currentIndices = Array.from(currentPanels).map(panel => parseInt(panel.dataset.index));
         
-        // 找出需要刪除的 panels
-        currentIndices.forEach((index) => {
-          if (!shouldExistIndices.includes(index)) {
+        // 判斷是要添加還是刪除
+        const toAdd = shouldExistIndices.filter(index => !currentIndices.includes(index));
+        const toRemove = currentIndices.filter(index => !shouldExistIndices.includes(index));
+        
+        if (toRemove.length > 0) {
+          // 刪除模式：先縮小 calc-panel，再刪除 panels
+          // 添加 removing 類開始刪除動畫
+          toRemove.forEach((index) => {
             const panel = wrapper.querySelector(`[data-index="${index}"]`);
             if (panel) {
               panel.classList.add('removing');
-              setTimeout(() => {
-                panel.remove();
-                // 刪除後延遲計算高度，等待動畫完成
-                setTimeout(updatePanelHeight, 50);
-              }, 300);
             }
-          }
-        });
-        
-        // 找出需要添加的 panels
-        shouldExistIndices.forEach((index) => {
-          if (!currentIndices.includes(index)) {
+          });
+          
+          // 計算新的高度（排除要刪除的 panels）並縮小 calc-panel
+          updatePanelHeight(toRemove);
+          
+          // 等待收縮動畫完成後刪除 panels
+          setTimeout(() => {
+            toRemove.forEach((index) => {
+              const panel = wrapper.querySelector(`[data-index="${index}"]`);
+              if (panel) {
+                panel.remove();
+              }
+            });
+            // 重新排列剩餘的 panels
+            reorderPanels(shouldExistIndices, wrapper);
+          }, 350);
+        } else if (toAdd.length > 0) {
+          // 添加模式：先添加 panels，展開 calc-panel，再顯示動畫
+          // 先添加新的 panels
+          toAdd.forEach((index) => {
             const statItem = statItems[index];
-            createInputPanel(statItem, index, wrapper);
+            createInputPanel(statItem, index, wrapper, true); // 傳入 true 表示新增
+          });
+          
+          // 重新排列
+          reorderPanels(shouldExistIndices, wrapper);
+          
+          // 先計算新的高度並展開 calc-panel
+          setTimeout(() => {
+            updatePanelHeight();
+          }, 50);
+        } else {
+          // 只有排序變化
+          reorderPanels(shouldExistIndices, wrapper);
+        }
+      }
+      
+      // 重新排列 panels 的函數
+      function reorderPanels(shouldExistIndices, wrapper) {
+        const allPanels = Array.from(wrapper.querySelectorAll('.input-panel-item'));
+        allPanels.forEach((panel) => {
+          const panelIndex = parseInt(panel.dataset.index);
+          const targetPosition = shouldExistIndices.indexOf(panelIndex);
+          const currentPosition = Array.from(wrapper.children).indexOf(panel);
+          
+          // 如果位置不正確，添加動畫類並移動到正確位置
+          if (currentPosition !== targetPosition) {
+            // 添加重排序動畫類
+            panel.classList.add('reordering');
+            
+            if (targetPosition === 0) {
+              wrapper.insertBefore(panel, wrapper.firstChild);
+            } else {
+              const targetElement = Array.from(wrapper.children)[targetPosition];
+              if (targetElement) {
+                wrapper.insertBefore(panel, targetElement);
+              } else {
+                wrapper.appendChild(panel);
+              }
+            }
+            
+            // 動畫完成後移除類
+            setTimeout(() => {
+              panel.classList.remove('reordering');
+            }, 350);
           }
         });
-        
-        // 添加或修改時延遲計算高度，等待動畫開始並有時間計算
-        setTimeout(updatePanelHeight, 320);
       }
       
       // 更新 calc-panel 的高度
-      function updatePanelHeight() {
+      // excludeIndices: 要排除的 panel 索引陣列（用於刪除時計算新高度）
+      function updatePanelHeight(excludeIndices = []) {
         const calcPanel = document.getElementById('calcPanel');
         const wrapper = calcPanel.querySelector('.input-items-wrapper');
         
-        if (!wrapper || wrapper.children.length === 0) {
-          // 沒有內容，縮到最小（只剩 margin）
-          calcPanel.style.height = '0px';
-          calcPanel.style.padding = '0px';
-          calcPanel.style.gap = '0px';
-        } else {
-          // 恢復 padding 和 gap
-          calcPanel.style.padding = '1.2rem';
-          calcPanel.style.gap = '0.8rem';
-          
-          // 使用多次 requestAnimationFrame 確保布局穩定後再計算
+        if (!wrapper) {
+          return;
+        }
+        
+        // 恢復 padding 和 gap（始終保持）
+        calcPanel.style.padding = '1.2rem';
+        calcPanel.style.gap = '0.8rem';
+        
+        // 獲取不在排除列表中的 panels
+        const visiblePanels = Array.from(wrapper.querySelectorAll('.input-panel-item')).filter(panel => {
+          const index = parseInt(panel.dataset.index);
+          return !excludeIndices.includes(index);
+        });
+        
+        // 使用多次 requestAnimationFrame 確保布局穩定後再計算
+        requestAnimationFrame(() => {
           requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              const styles = window.getComputedStyle(calcPanel);
-              const paddingTop = parseFloat(styles.paddingTop) || 0;
-              const paddingBottom = parseFloat(styles.paddingBottom) || 0;
-              const wrapperHeight = wrapper.scrollHeight;
-              // 加上 10px 的 buffer 確保不會覆蓋到 input-panel
-              const totalHeight = wrapperHeight + paddingTop + paddingBottom + 10;
+            const styles = window.getComputedStyle(calcPanel);
+            const paddingTop = parseFloat(styles.paddingTop) || 0;
+            const paddingBottom = parseFloat(styles.paddingBottom) || 0;
+            
+            if (visiblePanels.length === 0) {
+              // 沒有內容，只計算 padding 高度（保留默認高度）
+              const totalHeight = paddingTop + paddingBottom;
+              calcPanel.style.height = totalHeight + 'px';
+            } else {
+              // 計算只包括可見 panels 的高度
+              let visibleHeight = 0;
+              visiblePanels.forEach(panel => {
+                visibleHeight += panel.offsetHeight;
+              });
+              
+              // 計算 gap 高度（panel 之間的間距）
+              const gapCount = Math.max(0, visiblePanels.length - 1);
+              const gap = parseFloat(window.getComputedStyle(wrapper).gap) || 9.6; // 0.6rem = 9.6px
+              const gapHeight = gapCount * gap;
+              
+              const totalHeight = visibleHeight + gapHeight + paddingTop + paddingBottom;
               
               calcPanel.style.height = totalHeight + 'px';
-            });
+            }
           });
-        }
+        });
       }
 
       // 為每個被選中的 stat-item 創建一個 input-panel
-      function createInputPanel(statItem, index, container) {
+      function createInputPanel(statItem, index, container, isNewItem = false) {
         const panelDiv = document.createElement('div');
         panelDiv.className = 'input-panel-item';
+        if (isNewItem) {
+          panelDiv.classList.add('entering');
+        }
         panelDiv.dataset.index = index;
         
         panelDiv.innerHTML = `
+          <button class="delete-panel-btn-inline" data-index="${index}">×</button>
           <div class="panel-row">
             <div class="panel-label">${statItem.textContent}</div>
-            <input type="number" class="stat-input short-input left-input" placeholder="基礎" data-index="${index}" />
-            <input type="number" class="stat-input short-input middle-input" placeholder="增加" data-index="${index}" />
-            <input type="number" class="stat-input short-input result-input" placeholder="結果" readonly data-index="${index}" />
-            <button class="input-item-remove" data-index="${index}">移除</button>
+            <div class="configs-group">
+              <div class="config-wrapper">
+                <input type="number" class="stat-input short-input left-input" placeholder="配置1" data-index="${index}" />
+                <div class="input-spinner">
+                  <button class="spinner-btn up" data-type="left" data-index="${index}">▲</button>
+                  <button class="spinner-btn down" data-type="left" data-index="${index}">▼</button>
+                </div>
+              </div>
+              <div class="config-wrapper">
+                <input type="number" class="stat-input short-input result-input" placeholder="配置2" data-index="${index}" />
+                <div class="input-spinner">
+                  <button class="spinner-btn up" data-type="result" data-index="${index}">▲</button>
+                  <button class="spinner-btn down" data-type="result" data-index="${index}">▼</button>
+                </div>
+              </div>
+            </div>
+            <div class="config-wrapper">
+              <input type="number" class="stat-input short-input middle-input" placeholder="變動量" data-index="${index}" />
+              <div class="input-spinner">
+                <button class="spinner-btn up" data-type="middle" data-index="${index}">▲</button>
+                <button class="spinner-btn down" data-type="middle" data-index="${index}">▼</button>
+              </div>
+            </div>
           </div>
         `;
         
-        container.appendChild(panelDiv);
         
-        // 綁定計算事件
-        const leftInput = panelDiv.querySelector('.left-input');
-        const middleInput = panelDiv.querySelector('.middle-input');
-        const resultInput = panelDiv.querySelector('.result-input');
+        // 确保删除按钮元素存在
+        const deleteBtn = panelDiv.querySelector('.delete-panel-btn-inline');
         
-        [leftInput, middleInput].forEach(input => {
-          input.addEventListener('input', () => {
-            const leftValue = parseFloat(leftInput.value) || 0;
-            const middleValue = parseFloat(middleInput.value) || 0;
-            resultInput.value = leftValue + middleValue;
-          });
+        // 绑定 panel 的 hover 事件，显示隐藏删除按钮
+        panelDiv.addEventListener('mouseenter', () => {
+          deleteBtn.classList.add('show');
         });
         
-        // 綁定移除按鈕事件
-        const removeBtn = panelDiv.querySelector('.input-item-remove');
-        removeBtn.addEventListener('click', () => {
+        panelDiv.addEventListener('mouseleave', () => {
+          deleteBtn.classList.remove('show');
+        });
+        
+        // 绑定删除按钮的点击事件
+        deleteBtn.addEventListener('click', () => {
           statItems[index].classList.remove('selected');
           selectedGameStats[index] = false;
           localStorage.setItem(STORAGE_KEY, JSON.stringify(selectedGameStats));
           updateInputPanel();
         });
+        
+        container.appendChild(panelDiv);
+        
+        // 動畫完成後移除 entering 類
+        if (isNewItem) {
+          setTimeout(() => {
+            panelDiv.classList.remove('entering');
+          }, 400);
+        }
+        // 綁定計算事件 - 三向绑定逻辑
+        const leftInput = panelDiv.querySelector('.left-input');
+        const middleInput = panelDiv.querySelector('.middle-input');
+        const resultInput = panelDiv.querySelector('.result-input');
+        
+        // 配置1 变化 → 配置2 = 配置1 + 變動量
+        leftInput.addEventListener('input', () => {
+          const leftValue = parseFloat(leftInput.value) || 0;
+          const middleValue = parseFloat(middleInput.value) || 0;
+          resultInput.value = leftValue + middleValue;
+        });
+        
+        // 變動量 变化 → 配置2 = 配置1 + 變動量
+        middleInput.addEventListener('input', () => {
+          const leftValue = parseFloat(leftInput.value) || 0;
+          const middleValue = parseFloat(middleInput.value) || 0;
+          resultInput.value = leftValue + middleValue;
+        });
+        
+        // 配置2 变化 → 變動量 = 配置2 - 配置1
+        resultInput.addEventListener('input', () => {
+          const leftValue = parseFloat(leftInput.value) || 0;
+          const resultValue = parseFloat(resultInput.value) || 0;
+          middleInput.value = resultValue - leftValue;
+        });
+
+        // 上下按钮的处理函数
+        const handleSpinnerChange = (inputElement, increment) => {
+          const currentValue = inputElement.value;
+          let newValue;
+          
+          if (currentValue === '' || currentValue === null) {
+            newValue = increment;
+          } else {
+            const num = parseFloat(currentValue);
+            // 保留小数点精度
+            newValue = num + increment;
+            // 如果结果是整数但原值有小数，保留一位小数
+            if (!Number.isInteger(num) && Number.isInteger(newValue)) {
+              newValue = newValue.toFixed(1);
+            }
+          }
+          
+          inputElement.value = newValue;
+          // 触发 input 事件以更新关联的计算
+          inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+        };
+
+        // 绑定所有 spinner 按钮
+        const spinnerBtns = panelDiv.querySelectorAll('.spinner-btn');
+        spinnerBtns.forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const dataType = btn.getAttribute('data-type');
+            const isUp = btn.classList.contains('up');
+            const increment = isUp ? 1 : -1;
+            
+            let inputElement;
+            if (dataType === 'left') {
+              inputElement = leftInput;
+            } else if (dataType === 'middle') {
+              inputElement = middleInput;
+            } else if (dataType === 'result') {
+              inputElement = resultInput;
+            }
+            
+            if (inputElement) {
+              handleSpinnerChange(inputElement, increment);
+            }
+          });
+        });
       }
 
-      // 初始化時如果有被選中的項目，就更新輸入面板
-      if (selectedGameStats.some(stat => stat === true)) {
-        updateInputPanel();
+      // 初始化時創建 wrapper 並設置默認高度
+      const calcPanel = document.getElementById('calcPanel');
+      let wrapper = calcPanel.querySelector('.input-items-wrapper');
+      
+      if (!wrapper) {
+        wrapper = document.createElement('div');
+        wrapper.className = 'input-items-wrapper';
+        calcPanel.insertBefore(wrapper, calcPanel.firstChild);
       }
+      
+      // 如果有被選中的項目，添加 panels
+      if (selectedGameStats.some(stat => stat === true)) {
+        // 初始化時直接添加 panels，不需要動畫
+        statItems.forEach((item, index) => {
+          if (selectedGameStats[index]) {
+            createInputPanel(item, index, wrapper, false);
+          }
+        });
+      }
+      
+      // 無論有沒有 panels，都計算高度（設置默認高度）
+      setTimeout(updatePanelHeight, 50);
     </script>
   </body>
 </html>
