@@ -45,6 +45,16 @@
       </section>
     </main>
     <script>
+      // 浮点数精度处理函数 - 避免 5.3 显示成 5.3000000002 或 5.29999999
+      const roundNumber = (num, decimals = 10) => {
+        if (!Number.isFinite(num)) return num;
+        // 用字符串匹配来保留有意义的小数位数
+        const multiplier = Math.pow(10, decimals);
+        const rounded = Math.round(num * multiplier) / multiplier;
+        // 如果结果是整数，返回整数；否则返回精确的浮点数
+        return parseFloat(rounded.toFixed(decimals).replace(/\.?0+$/, ''));
+      };
+
       const statItems = document.querySelectorAll('.stat-item');
       const STORAGE_KEY = 'selectedGameStats';
       
@@ -227,43 +237,45 @@
           return;
         }
         
-        // 恢復 padding 和 gap（始終保持）
-        calcPanel.style.padding = '1.2rem';
-        calcPanel.style.gap = '0.8rem';
-        
-        // 獲取不在排除列表中的 panels
-        const visiblePanels = Array.from(wrapper.querySelectorAll('.input-panel-item')).filter(panel => {
-          const index = parseInt(panel.dataset.index);
-          return !excludeIndices.includes(index);
-        });
-        
         // 使用多次 requestAnimationFrame 確保布局穩定後再計算
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
-            const styles = window.getComputedStyle(calcPanel);
-            const paddingTop = parseFloat(styles.paddingTop) || 0;
-            const paddingBottom = parseFloat(styles.paddingBottom) || 0;
+            // 先隱藏要排除的 panels
+            excludeIndices.forEach(index => {
+              const panel = wrapper.querySelector(`[data-index="${index}"]`);
+              if (panel) {
+                panel.style.display = 'none';
+              }
+            });
             
-            if (visiblePanels.length === 0) {
-              // 沒有內容，只計算 padding 高度（保留默認高度）
-              const totalHeight = paddingTop + paddingBottom;
-              calcPanel.style.height = totalHeight + 'px';
-            } else {
-              // 計算只包括可見 panels 的高度
-              let visibleHeight = 0;
-              visiblePanels.forEach(panel => {
-                visibleHeight += panel.offsetHeight;
+            // 等待隱藏生效後再計算高度
+            requestAnimationFrame(() => {
+              const visiblePanels = Array.from(wrapper.querySelectorAll('.input-panel-item')).filter(panel => {
+                return panel.style.display !== 'none';
               });
               
-              // 計算 gap 高度（panel 之間的間距）
-              const gapCount = Math.max(0, visiblePanels.length - 1);
-              const gap = parseFloat(window.getComputedStyle(wrapper).gap) || 9.6; // 0.6rem = 9.6px
-              const gapHeight = gapCount * gap;
+              if (visiblePanels.length === 0) {
+                // 沒有內容，設置為 0
+                calcPanel.style.height = '0px';
+              } else {
+                // 直接使用 wrapper 的 scrollHeight（包括所有可見內容和 gap）
+                const wrapperHeight = wrapper.scrollHeight;
+                const styles = window.getComputedStyle(calcPanel);
+                const paddingTop = parseFloat(styles.paddingTop) || 0;
+                const paddingBottom = parseFloat(styles.paddingBottom) || 0;
+                const totalHeight = wrapperHeight + paddingTop + paddingBottom;
+                
+                calcPanel.style.height = totalHeight + 'px';
+              }
               
-              const totalHeight = visibleHeight + gapHeight + paddingTop + paddingBottom;
-              
-              calcPanel.style.height = totalHeight + 'px';
-            }
+              // 還原隱藏
+              excludeIndices.forEach(index => {
+                const panel = wrapper.querySelector(`[data-index="${index}"]`);
+                if (panel) {
+                  panel.style.display = '';
+                }
+              });
+            });
           });
         });
       }
@@ -277,36 +289,75 @@
         }
         panelDiv.dataset.index = index;
         
-        panelDiv.innerHTML = `
-          <button class="delete-panel-btn-inline" data-index="${index}">×</button>
-          <div class="panel-row">
-            <div class="panel-label">${statItem.textContent}</div>
-            <div class="configs-group">
-              <div class="config-wrapper">
-                <input type="number" class="stat-input short-input left-input" placeholder="配置1" data-index="${index}" />
-                <div class="input-spinner">
-                  <button class="spinner-btn up" data-type="left" data-index="${index}">▲</button>
-                  <button class="spinner-btn down" data-type="left" data-index="${index}">▼</button>
-                </div>
-              </div>
-              <div class="config-wrapper">
-                <input type="number" class="stat-input short-input result-input" placeholder="配置2" data-index="${index}" />
-                <div class="input-spinner">
-                  <button class="spinner-btn up" data-type="result" data-index="${index}">▲</button>
-                  <button class="spinner-btn down" data-type="result" data-index="${index}">▼</button>
-                </div>
-              </div>
-            </div>
-            <div class="config-wrapper">
-              <input type="number" class="stat-input short-input middle-input" placeholder="變動量" data-index="${index}" />
-              <div class="input-spinner">
-                <button class="spinner-btn up" data-type="middle" data-index="${index}">▲</button>
-                <button class="spinner-btn down" data-type="middle" data-index="${index}">▼</button>
-              </div>
-            </div>
-          </div>
-        `;
+        // 判斷是否需要按鈕型輸入框的 stat-item
+        const buttonInputIndices = [0, 1, 2, 4, 5, 10];
+        const useButtonInput = buttonInputIndices.includes(index);
         
+        if (useButtonInput) {
+          // 按鈕型輸入框
+          panelDiv.innerHTML = `
+            <button class="delete-panel-btn-inline" data-index="${index}">×</button>
+            <div class="panel-row">
+              <div class="panel-label">${statItem.textContent}</div>
+              <div class="configs-group">
+                <div class="config-wrapper">
+                  <button class="button-input left-input" data-index="${index}" data-type="left">--</button>
+                  <div class="input-spinner">
+                    <button class="spinner-btn up" data-type="left" data-index="${index}">∧</button>
+                    <button class="spinner-btn down" data-type="left" data-index="${index}">∨</button>
+                  </div>
+                </div>
+                <div class="config-wrapper">
+                  <button class="button-input result-input" data-index="${index}" data-type="result">--</button>
+                  <div class="input-spinner">
+                    <button class="spinner-btn up" data-type="result" data-index="${index}">∧</button>
+                    <button class="spinner-btn down" data-type="result" data-index="${index}">∨</button>
+                  </div>
+                </div>
+              </div>
+              <div class="config-wrapper">
+                <span class="middle-indicator">▲</span>
+                <input type="number" class="stat-input short-input middle-input" placeholder="變動量" data-index="${index}" />
+                <div class="input-spinner">
+                  <button class="spinner-btn up" data-type="middle" data-index="${index}">∧</button>
+                  <button class="spinner-btn down" data-type="middle" data-index="${index}">∨</button>
+                </div>
+              </div>
+            </div>
+          `;
+        } else {
+          // 常規輸入框
+          panelDiv.innerHTML = `
+            <button class="delete-panel-btn-inline" data-index="${index}">×</button>
+            <div class="panel-row">
+              <div class="panel-label">${statItem.textContent}</div>
+              <div class="configs-group">
+                <div class="config-wrapper">
+                  <input type="number" class="stat-input short-input left-input" placeholder="配置1" data-index="${index}" />
+                  <div class="input-spinner">
+                    <button class="spinner-btn up" data-type="left" data-index="${index}">∧</button>
+                    <button class="spinner-btn down" data-type="left" data-index="${index}">∨</button>
+                  </div>
+                </div>
+                <div class="config-wrapper">
+                  <input type="number" class="stat-input short-input result-input" placeholder="配置2" data-index="${index}" />
+                  <div class="input-spinner">
+                    <button class="spinner-btn up" data-type="result" data-index="${index}">∧</button>
+                    <button class="spinner-btn down" data-type="result" data-index="${index}">∨</button>
+                  </div>
+                </div>
+              </div>
+              <div class="config-wrapper">
+                <span class="middle-indicator">▲</span>
+                <input type="number" class="stat-input short-input middle-input" placeholder="變動量" data-index="${index}" />
+                <div class="input-spinner">
+                  <button class="spinner-btn up" data-type="middle" data-index="${index}">∧</button>
+                  <button class="spinner-btn down" data-type="middle" data-index="${index}">∨</button>
+                </div>
+              </div>
+            </div>
+          `;
+        }
         
         // 确保删除按钮元素存在
         const deleteBtn = panelDiv.querySelector('.delete-panel-btn-inline');
@@ -336,34 +387,89 @@
             panelDiv.classList.remove('entering');
           }, 400);
         }
+        
         // 綁定計算事件 - 三向绑定逻辑
         const leftInput = panelDiv.querySelector('.left-input');
         const middleInput = panelDiv.querySelector('.middle-input');
         const resultInput = panelDiv.querySelector('.result-input');
+        const middleIndicator = panelDiv.querySelector('.middle-indicator');
         
-        // 配置1 变化 → 配置2 = 配置1 + 變動量
-        leftInput.addEventListener('input', () => {
-          const leftValue = parseFloat(leftInput.value) || 0;
+        // 獲取輸入值的輔助函數
+        const getInputValue = (element) => {
+          let value;
+          if (element.classList.contains('button-input')) {
+            value = element.dataset.value ? parseFloat(element.dataset.value) : 0;
+          } else {
+            value = element.value ? parseFloat(element.value) : 0;
+          }
+          return roundNumber(value);
+        };
+        
+        // 設置輸入值的輔助函數
+        const setInputValue = (element, value) => {
+          const precisedValue = roundNumber(value);
+          if (element.classList.contains('button-input')) {
+            element.dataset.value = precisedValue;
+            element.textContent = precisedValue;
+          } else {
+            element.value = precisedValue;
+          }
+        };
+        
+        // 更新中間指示器
+        const updateMiddleIndicator = () => {
+          const middleValue = roundNumber(parseFloat(middleInput.value) || 0);
+          middleIndicator.classList.remove('positive', 'negative', 'zero');
+          middleIndicator.textContent = '▲';
+          if (middleValue > 0) {
+            middleIndicator.classList.add('positive');
+          } else if (middleValue < 0) {
+            middleIndicator.classList.add('negative');
+          } else {
+            middleIndicator.classList.add('zero');
+          }
+        };
+        
+        // 觸發三向綁定更新的函數
+        const triggerThreeWayBinding = (changedType) => {
+          const leftValue = getInputValue(leftInput);
+          const resultValue = getInputValue(resultInput);
           const middleValue = parseFloat(middleInput.value) || 0;
-          resultInput.value = leftValue + middleValue;
-        });
+          
+          if (changedType === 'left') {
+            // 配置1改變 → 變動量 = 配置2 - 配置1
+            const newMiddle = roundNumber(resultValue - leftValue);
+            middleInput.value = newMiddle;
+          } else if (changedType === 'result') {
+            // 配置2改變 → 變動量 = 配置2 - 配置1
+            const newMiddle = roundNumber(resultValue - leftValue);
+            middleInput.value = newMiddle;
+          } else if (changedType === 'middle') {
+            // 變動量改變 → 配置2 = 配置1 + 變動量
+            const newResult = roundNumber(leftValue + middleValue);
+            setInputValue(resultInput, newResult);
+          }
+          updateMiddleIndicator();
+        };
         
-        // 變動量 变化 → 配置2 = 配置1 + 變動量
-        middleInput.addEventListener('input', () => {
-          const leftValue = parseFloat(leftInput.value) || 0;
-          const middleValue = parseFloat(middleInput.value) || 0;
-          resultInput.value = leftValue + middleValue;
-        });
-        
-        // 配置2 变化 → 變動量 = 配置2 - 配置1
-        resultInput.addEventListener('input', () => {
-          const leftValue = parseFloat(leftInput.value) || 0;
-          const resultValue = parseFloat(resultInput.value) || 0;
-          middleInput.value = resultValue - leftValue;
-        });
-
         // 上下按钮的处理函数
         const handleSpinnerChange = (inputElement, increment) => {
+          // 支持按鈕型輸入框
+          if (inputElement.classList.contains('button-input')) {
+            const currentValue = parseFloat(inputElement.dataset.value) || 0;
+            const newValue = roundNumber(currentValue + increment);
+            inputElement.dataset.value = newValue;
+            inputElement.textContent = newValue;
+            
+            // 觸發三向綁定更新
+            if (panelDiv.triggerThreeWayBinding) {
+              const type = inputElement.classList.contains('left-input') ? 'left' : 'result';
+              panelDiv.triggerThreeWayBinding(type);
+            }
+            return;
+          }
+          
+          // 常規輸入框邏輯
           const currentValue = inputElement.value;
           let newValue;
           
@@ -371,18 +477,59 @@
             newValue = increment;
           } else {
             const num = parseFloat(currentValue);
-            // 保留小数点精度
-            newValue = num + increment;
-            // 如果结果是整数但原值有小数，保留一位小数
-            if (!Number.isInteger(num) && Number.isInteger(newValue)) {
-              newValue = newValue.toFixed(1);
-            }
+            // 保留小数点精度并进行精度处理
+            newValue = roundNumber(num + increment);
           }
           
           inputElement.value = newValue;
           // 触发 input 事件以更新关联的计算
           inputElement.dispatchEvent(new Event('input', { bubbles: true }));
         };
+        
+        // 為按鈕型輸入框添加事件處理
+        if (useButtonInput) {
+          const leftBtn = panelDiv.querySelector('.left-input');
+          const resultBtn = panelDiv.querySelector('.result-input');
+          
+          // 將三向綁定函數存儲在 panelDiv 上，供對話框使用
+          panelDiv.triggerThreeWayBinding = triggerThreeWayBinding;
+          panelDiv.getInputValue = getInputValue;
+          panelDiv.setInputValue = setInputValue;
+          panelDiv.leftInput = leftInput;
+          panelDiv.resultInput = resultInput;
+          panelDiv.middleInput = middleInput;
+          
+          leftBtn.addEventListener('click', () => {
+            openNumberInputDialog(leftBtn, 'left', index, panelDiv);
+          });
+          
+          resultBtn.addEventListener('click', () => {
+            openNumberInputDialog(resultBtn, 'result', index, panelDiv);
+          });
+        }
+        
+        // 配置1 改變 → 變動量 = 配置2 - 配置1
+        if (leftInput.classList.contains('button-input')) {
+          // 按鈕型輸入框不需要綁定 input 事件
+        } else {
+          leftInput.addEventListener('input', () => {
+            triggerThreeWayBinding('left');
+          });
+        }
+        
+        // 配置2 改變 → 變動量 = 配置2 - 配置1
+        if (resultInput.classList.contains('button-input')) {
+          // 按鈕型輸入框不需要綁定 input 事件
+        } else {
+          resultInput.addEventListener('input', () => {
+            triggerThreeWayBinding('result');
+          });
+        }
+        
+        // 變動量 改變 → 配置2 = 配置1 + 變動量
+        middleInput.addEventListener('input', () => {
+          triggerThreeWayBinding('middle');
+        });
 
         // 绑定所有 spinner 按钮
         const spinnerBtns = panelDiv.querySelectorAll('.spinner-btn');
@@ -407,6 +554,90 @@
             }
           });
         });
+        
+        // 初始化指示器
+        updateMiddleIndicator();
+      }
+      
+      // 打開數字輸入對話框
+      function openNumberInputDialog(button, type, index, panelDiv) {
+        // 創建對話框
+        let dialog = document.getElementById('numberInputDialog');
+        if (!dialog) {
+          dialog = document.createElement('div');
+          dialog.id = 'numberInputDialog';
+          dialog.className = 'number-input-dialog';
+          dialog.innerHTML = `
+            <div class="dialog-content">
+              <input type="number" class="dialog-input" placeholder="輸入數字" />
+              <div class="dialog-buttons">
+                <button class="dialog-btn confirm">確認</button>
+                <button class="dialog-btn cancel">取消</button>
+              </div>
+            </div>
+          `;
+          document.body.appendChild(dialog);
+        }
+        
+        const input = dialog.querySelector('.dialog-input');
+        const confirmBtn = dialog.querySelector('.dialog-btn.confirm');
+        const cancelBtn = dialog.querySelector('.dialog-btn.cancel');
+        
+        // 設置初始值
+        input.value = button.dataset.value || '';
+        
+        // 顯示對話框
+        dialog.classList.add('show');
+        input.focus();
+        input.select();
+        
+        // 確認按鈕
+        const handleConfirm = () => {
+          const value = roundNumber(parseFloat(input.value) || 0);
+          button.dataset.value = value;
+          button.textContent = value;
+          
+          // 觸發三向綁定更新
+          if (panelDiv.triggerThreeWayBinding) {
+            const changeType = type === 'left' ? 'left' : 'result';
+            panelDiv.triggerThreeWayBinding(changeType);
+          }
+          
+          closeDialog();
+        };
+        
+        // 取消按鈕
+        const handleCancel = () => {
+          closeDialog();
+        };
+        
+        const closeDialog = () => {
+          dialog.classList.remove('show');
+          confirmBtn.removeEventListener('click', handleConfirm);
+          cancelBtn.removeEventListener('click', handleCancel);
+          document.removeEventListener('keydown', handleKeyDown);
+        };
+        
+        // 鍵盤事件
+        const handleKeyDown = (e) => {
+          if (e.key === 'Enter') handleConfirm();
+          if (e.key === 'Escape') handleCancel();
+        };
+        
+        confirmBtn.addEventListener('click', handleConfirm);
+        cancelBtn.addEventListener('click', handleCancel);
+        document.addEventListener('keydown', handleKeyDown);
+      }
+      
+      // 獲取對話框中輸入值的輔助函數
+      function getInputValueForDialog(element) {
+        let value;
+        if (element && element.classList.contains('button-input')) {
+          value = element.dataset.value ? parseFloat(element.dataset.value) : 0;
+        } else {
+          value = element && element.value ? parseFloat(element.value) : 0;
+        }
+        return roundNumber(value);
       }
 
       // 初始化時創建 wrapper 並設置默認高度
