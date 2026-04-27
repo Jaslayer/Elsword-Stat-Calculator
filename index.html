@@ -132,6 +132,29 @@
           wrapper = document.createElement('div');
           wrapper.className = 'input-items-wrapper';
           calcPanel.insertBefore(wrapper, calcPanel.firstChild);
+          
+          // 創建永久停駐的頭部
+          const headerPanel = document.createElement('div');
+          headerPanel.className = 'input-panel-header';
+          headerPanel.innerHTML = `
+            <div class="panel-row">
+              <div class="panel-label">配置名稱</div>
+              <div class="config-wrapper">
+                <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.9rem; text-align: center; width: 100px;">配置 1</div>
+                <div style="width: 20px;"></div>
+              </div>
+              <div class="config-wrapper">
+                <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.9rem; text-align: center; width: 100px;">配置 2</div>
+                <div style="width: 20px;"></div>
+              </div>
+              <div class="config-wrapper">
+                <span class="middle-indicator">▲</span>
+                <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.9rem; text-align: center; width: 100px;">變動量</div>
+                <div style="width: 20px;"></div>
+              </div>
+            </div>
+          `;
+          wrapper.appendChild(headerPanel);
         }
         
         // 獲取應該存在的 stat-item 索引
@@ -299,20 +322,18 @@
             <button class="delete-panel-btn-inline" data-index="${index}">×</button>
             <div class="panel-row">
               <div class="panel-label">${statItem.textContent}</div>
-              <div class="configs-group">
-                <div class="config-wrapper">
-                  <button class="button-input left-input" data-index="${index}" data-type="left">--</button>
-                  <div class="input-spinner">
-                    <button class="spinner-btn up" data-type="left" data-index="${index}">∧</button>
-                    <button class="spinner-btn down" data-type="left" data-index="${index}">∨</button>
-                  </div>
+              <div class="config-wrapper">
+                <button class="button-input left-input" data-index="${index}" data-type="left" data-value=""></button>
+                <div class="input-spinner">
+                  <button class="spinner-btn up" data-type="left" data-index="${index}">∧</button>
+                  <button class="spinner-btn down" data-type="left" data-index="${index}">∨</button>
                 </div>
-                <div class="config-wrapper">
-                  <button class="button-input result-input" data-index="${index}" data-type="result">--</button>
-                  <div class="input-spinner">
-                    <button class="spinner-btn up" data-type="result" data-index="${index}">∧</button>
-                    <button class="spinner-btn down" data-type="result" data-index="${index}">∨</button>
-                  </div>
+              </div>
+              <div class="config-wrapper">
+                <button class="button-input result-input" data-index="${index}" data-type="result" data-value=""></button>
+                <div class="input-spinner">
+                  <button class="spinner-btn up" data-type="result" data-index="${index}">∧</button>
+                  <button class="spinner-btn down" data-type="result" data-index="${index}">∨</button>
                 </div>
               </div>
               <div class="config-wrapper">
@@ -331,25 +352,23 @@
             <button class="delete-panel-btn-inline" data-index="${index}">×</button>
             <div class="panel-row">
               <div class="panel-label">${statItem.textContent}</div>
-              <div class="configs-group">
-                <div class="config-wrapper">
-                  <input type="number" class="stat-input short-input left-input" placeholder="配置1" data-index="${index}" />
-                  <div class="input-spinner">
-                    <button class="spinner-btn up" data-type="left" data-index="${index}">∧</button>
-                    <button class="spinner-btn down" data-type="left" data-index="${index}">∨</button>
-                  </div>
+              <div class="config-wrapper">
+                <input type="number" class="stat-input short-input left-input" data-index="${index}" />
+                <div class="input-spinner">
+                  <button class="spinner-btn up" data-type="left" data-index="${index}">∧</button>
+                  <button class="spinner-btn down" data-type="left" data-index="${index}">∨</button>
                 </div>
-                <div class="config-wrapper">
-                  <input type="number" class="stat-input short-input result-input" placeholder="配置2" data-index="${index}" />
-                  <div class="input-spinner">
-                    <button class="spinner-btn up" data-type="result" data-index="${index}">∧</button>
-                    <button class="spinner-btn down" data-type="result" data-index="${index}">∨</button>
-                  </div>
+              </div>
+              <div class="config-wrapper">
+                <input type="number" class="stat-input short-input result-input" data-index="${index}" />
+                <div class="input-spinner">
+                  <button class="spinner-btn up" data-type="result" data-index="${index}">∧</button>
+                  <button class="spinner-btn down" data-type="result" data-index="${index}">∨</button>
                 </div>
               </div>
               <div class="config-wrapper">
                 <span class="middle-indicator">▲</span>
-                <input type="number" class="stat-input short-input middle-input" placeholder="變動量" data-index="${index}" />
+                <input type="number" class="stat-input short-input middle-input" placeholder="+/-" data-index="${index}" />
                 <div class="input-spinner">
                   <button class="spinner-btn up" data-type="middle" data-index="${index}">∧</button>
                   <button class="spinner-btn down" data-type="middle" data-index="${index}">∨</button>
@@ -576,7 +595,7 @@
               </div>
             </div>
           `;
-          document.body.appendChild(dialog);
+          document.getElementById('calcPanel').appendChild(dialog);
         }
         
         const input = dialog.querySelector('.dialog-input');
@@ -648,6 +667,29 @@
         wrapper = document.createElement('div');
         wrapper.className = 'input-items-wrapper';
         calcPanel.insertBefore(wrapper, calcPanel.firstChild);
+        
+        // 創建永久停駐的頭部
+        const headerPanel = document.createElement('div');
+        headerPanel.className = 'input-panel-header';
+        headerPanel.innerHTML = `
+          <div class="panel-row">
+            <div class="panel-label">配置名稱</div>
+            <div class="config-wrapper">
+              <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.9rem; text-align: center; width: 100px;">配置 1</div>
+              <div style="width: 20px;"></div>
+            </div>
+            <div class="config-wrapper">
+              <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.9rem; text-align: center; width: 100px;">配置 2</div>
+              <div style="width: 20px;"></div>
+            </div>
+            <div class="config-wrapper">
+              <span class="middle-indicator">▲</span>
+              <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.9rem; text-align: center; width: 100px;">變動量</div>
+              <div style="width: 20px;"></div>
+            </div>
+          </div>
+        `;
+        wrapper.appendChild(headerPanel);
       }
       
       // 如果有被選中的項目，添加 panels
