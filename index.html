@@ -46,7 +46,7 @@
     </main>
     <script>
       // 浮点数精度处理函数 - 避免 5.3 显示成 5.3000000002 或 5.29999999
-      const roundNumber = (num, decimals = 10) => {
+      const roundNumber = (num, decimals = 5) => {
         if (!Number.isFinite(num)) return num;
         // 用字符串匹配来保留有意义的小数位数
         const multiplier = Math.pow(10, decimals);
@@ -220,26 +220,32 @@
       
       // 重新排列 panels 的函數
       function reorderPanels(shouldExistIndices, wrapper) {
+        const headerPanel = wrapper.querySelector('.input-panel-header');
         const allPanels = Array.from(wrapper.querySelectorAll('.input-panel-item'));
         allPanels.forEach((panel) => {
           const panelIndex = parseInt(panel.dataset.index);
+          
+          // 只排序在 shouldExistIndices 中的 panels
+          if (!shouldExistIndices.includes(panelIndex)) {
+            return;
+          }
+          
           const targetPosition = shouldExistIndices.indexOf(panelIndex);
+          // targetPosition 是相對於 panels 的位置，但在 wrapper 中要加 1（因為 header 在第 0 位）
+          const targetPositionInWrapper = targetPosition + 1;
           const currentPosition = Array.from(wrapper.children).indexOf(panel);
           
           // 如果位置不正確，添加動畫類並移動到正確位置
-          if (currentPosition !== targetPosition) {
+          if (currentPosition !== targetPositionInWrapper) {
             // 添加重排序動畫類
             panel.classList.add('reordering');
             
-            if (targetPosition === 0) {
-              wrapper.insertBefore(panel, wrapper.firstChild);
+            // 計算目標元素（確保 header 始終在最前）
+            const targetElement = Array.from(wrapper.children)[targetPositionInWrapper];
+            if (targetElement) {
+              wrapper.insertBefore(panel, targetElement);
             } else {
-              const targetElement = Array.from(wrapper.children)[targetPosition];
-              if (targetElement) {
-                wrapper.insertBefore(panel, targetElement);
-              } else {
-                wrapper.appendChild(panel);
-              }
+              wrapper.appendChild(panel);
             }
             
             // 動畫完成後移除類
@@ -277,9 +283,15 @@
                 return panel.style.display !== 'none';
               });
               
+              const headerHeight = wrapper.querySelector('.input-panel-header')?.scrollHeight || 0;
+              
               if (visiblePanels.length === 0) {
-                // 沒有內容，設置為 0
-                calcPanel.style.height = '0px';
+                // 沒有 input-panel-item，但仍需要 header 的高度
+                const styles = window.getComputedStyle(calcPanel);
+                const paddingTop = parseFloat(styles.paddingTop) || 0;
+                const paddingBottom = parseFloat(styles.paddingBottom) || 0;
+                const totalHeight = headerHeight + paddingTop + paddingBottom;
+                calcPanel.style.height = totalHeight + 'px';
               } else {
                 // 直接使用 wrapper 的 scrollHeight（包括所有可見內容和 gap）
                 const wrapperHeight = wrapper.scrollHeight;
@@ -587,11 +599,9 @@
           dialog.id = 'numberInputDialog';
           dialog.className = 'number-input-dialog';
           dialog.innerHTML = `
-            <div class="dialog-content">
+            <div class="detailed-dialog">
               <input type="number" class="dialog-input" placeholder="輸入數字" />
               <div class="dialog-buttons">
-                <button class="dialog-btn confirm">確認</button>
-                <button class="dialog-btn cancel">取消</button>
               </div>
             </div>
           `;
@@ -601,6 +611,22 @@
         const input = dialog.querySelector('.dialog-input');
         const confirmBtn = dialog.querySelector('.dialog-btn.confirm');
         const cancelBtn = dialog.querySelector('.dialog-btn.cancel');
+        const calcPanel = document.getElementById('calcPanel');
+        
+        // 計算對話框位置
+        // 獲取按鈕所在的輸入面板
+        const inputPanel = panelDiv;
+        const inputPanelRect = inputPanel.getBoundingClientRect();
+        const calcPanelRect = calcPanel.getBoundingClientRect();
+        
+        // 計算相對於 calc-panel 的位置
+        const topPos = inputPanelRect.top - calcPanelRect.top;
+        // left 62%
+        const leftPos = calcPanel.offsetWidth * 0.62;
+        
+        // 設置對話框位置
+        dialog.style.top = topPos + 'px';
+        dialog.style.left = leftPos + 'px';
         
         // 設置初始值
         input.value = button.dataset.value || '';
@@ -635,6 +661,26 @@
           confirmBtn.removeEventListener('click', handleConfirm);
           cancelBtn.removeEventListener('click', handleCancel);
           document.removeEventListener('keydown', handleKeyDown);
+          input.removeEventListener('blur', handleBlur);
+          document.removeEventListener('click', handleDocumentClick, true);
+        };
+        
+        // 焦點移除事件 - 在輸入框失焦時關閉對話框
+        const handleBlur = (e) => {
+          // 檢查焦點是否移動到對話框外
+          const activeElement = document.activeElement;
+          if (!dialog.contains(activeElement)) {
+            closeDialog();
+          }
+        };
+        
+        // 點擊文檔外部時關閉對話框
+        const handleDocumentClick = (e) => {
+          // 只在點擊不在 dialog 內時才關閉
+          if (dialog.contains(e.target)) {
+            return;
+          }
+          closeDialog();
         };
         
         // 鍵盤事件
@@ -646,6 +692,10 @@
         confirmBtn.addEventListener('click', handleConfirm);
         cancelBtn.addEventListener('click', handleCancel);
         document.addEventListener('keydown', handleKeyDown);
+        input.addEventListener('blur', handleBlur);
+        
+        // 直接添加文檔點擊事件，無需延遲
+        document.addEventListener('click', handleDocumentClick, true);
       }
       
       // 獲取對話框中輸入值的輔助函數
@@ -673,7 +723,7 @@
         headerPanel.className = 'input-panel-header';
         headerPanel.innerHTML = `
           <div class="panel-row">
-            <div class="panel-label">配置名稱</div>
+            <div class="panel-label"></div>
             <div class="config-wrapper">
               <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.9rem; text-align: center; width: 100px;">配置 1</div>
               <div style="width: 20px;"></div>

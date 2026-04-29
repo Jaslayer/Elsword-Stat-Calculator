@@ -270,6 +270,7 @@ body {
   flex-direction: column;
   gap: 0.8rem;
   position: relative;
+  overflow: visible;
   transition: height 300ms cubic-bezier(0.34, 1.56, 0.64, 1), padding 300ms cubic-bezier(0.34, 1.56, 0.64, 1), gap 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
   margin-bottom: 1rem;
 }
@@ -295,16 +296,27 @@ body {
 }
 
 .input-panel-header {
-  position: sticky;
-  top: 0;
-  background: rgba(27, 35, 49, 0.8);
-  border: 1px solid rgba(100, 150, 200, 0.3);
-  border-radius: 8px 8px 0px 0px;
-  padding: 0.4rem 0.8rem;
-  border-bottom: 1px solid rgba(100, 150, 200, 0.3);
-  z-index: 50;
-  backdrop-filter: blur(8px);
-  width: fit-content;
+  position: relative;
+  background: rgba(100, 150, 200, 0.1);
+  border: none;
+  border-bottom: 1px solid rgba(100, 150, 200, 0.4);
+  border-radius: 6px 6px 0 0;
+  padding: 0.6rem 0.8rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.input-panel-header .panel-label {
+  color: rgba(100, 150, 200, 0.9);
+  font-weight: 600;
+}
+
+.input-panel-header .config-wrapper div {
+  color: rgba(100, 150, 200, 0.8);
+}
+
+.input-panel-header .middle-indicator {
+  color: rgba(100, 150, 200, 0.8);
 }
 
 .input-panel-item {
@@ -613,10 +625,6 @@ body {
 /* 數字輸入對話框 */
 .number-input-dialog {
   position: absolute;
-  top: 0;
-  right: 0;
-  width: auto;
-  height: auto;
   background: transparent;
   display: block;
   z-index: 1000;
@@ -630,13 +638,13 @@ body {
   pointer-events: auto;
 }
 
-.dialog-content {
+.detailed-dialog {
   background: rgba(27, 35, 49, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 12px;
   padding: 2rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  min-width: 300px;
+  min-width: 390px;
 }
 
 .dialog-input {
