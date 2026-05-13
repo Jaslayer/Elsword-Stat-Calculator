@@ -90,9 +90,22 @@ stat/
   - 單獨 hover 應只顯示對應按鈕
   - 點擊刪除應只刪除該 panel
 
+- ✅ 詳細對話框消失測試
+  - 對話框顯示時存在於 DOM
+  - 點擊對話框範圍外應消失
+  - 其他 inputbox/inputbutton 被 focus 時應消失
+  - Escape 鍵按下時應消失
+  - 對話框消失時應移除 button 的 focus 狀態
+
+- ✅ 數值同步測試
+  - 在詳細對話框中輸入數值時應實時同步到 inputbutton
+  - inputbutton 的 textContent 應更新為輸入值
+  - inputbutton 的 dataset.value 應更新為輸入值
+  - 輸入值應觸發三向綁定更新
+  - 修改輸入值應多次同步更新
+
 ## 下一步
 
 1. 添加更多 DOM 互動測試（spinner 按鈕、input 輸入等）
-2. 為按鈕型輸入框的對話框添加測試
-3. 為三向綁定的 DOM 操作創建集成測試
-4. 添加端對端（E2E）測試，使用 Playwright 或 Cypress 進行完整流程測試
+2. 為三向綁定的 DOM 操作創建集成測試
+3. 添加端對端（E2E）測試，使用 Playwright 或 Cypress 進行完整流程測試

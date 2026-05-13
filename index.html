@@ -140,16 +140,16 @@
             <div class="panel-row">
               <div class="panel-label">配置名稱</div>
               <div class="config-wrapper">
-                <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.9rem; text-align: center; width: 100px;">配置 1</div>
+                <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">配置 1</div>
                 <div style="width: 20px;"></div>
               </div>
               <div class="config-wrapper">
-                <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.9rem; text-align: center; width: 100px;">配置 2</div>
+                <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">配置 2</div>
                 <div style="width: 20px;"></div>
               </div>
               <div class="config-wrapper">
                 <span class="middle-indicator">▲</span>
-                <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.9rem; text-align: center; width: 100px;">變動量</div>
+                <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">變動量</div>
                 <div style="width: 20px;"></div>
               </div>
             </div>
@@ -601,16 +601,12 @@
           dialog.innerHTML = `
             <div class="detailed-dialog">
               <input type="number" class="dialog-input" placeholder="輸入數字" />
-              <div class="dialog-buttons">
-              </div>
             </div>
           `;
           document.getElementById('calcPanel').appendChild(dialog);
         }
         
         const input = dialog.querySelector('.dialog-input');
-        const confirmBtn = dialog.querySelector('.dialog-btn.confirm');
-        const cancelBtn = dialog.querySelector('.dialog-btn.cancel');
         const calcPanel = document.getElementById('calcPanel');
         
         // 計算對話框位置
@@ -631,13 +627,16 @@
         // 設置初始值
         input.value = button.dataset.value || '';
         
+        // 添加 button 的 focus 類以保持視覺焦點狀態
+        button.classList.add('focus');
+        
         // 顯示對話框
         dialog.classList.add('show');
         input.focus();
         input.select();
         
-        // 確認按鈕
-        const handleConfirm = () => {
+        // 實時同步輸入值到 button
+        const handleInputChange = () => {
           const value = roundNumber(parseFloat(input.value) || 0);
           button.dataset.value = value;
           button.textContent = value;
@@ -647,37 +646,33 @@
             const changeType = type === 'left' ? 'left' : 'result';
             panelDiv.triggerThreeWayBinding(changeType);
           }
-          
-          closeDialog();
         };
         
-        // 取消按鈕
-        const handleCancel = () => {
-          closeDialog();
-        };
-        
-        const closeDialog = () => {
-          dialog.classList.remove('show');
-          confirmBtn.removeEventListener('click', handleConfirm);
-          cancelBtn.removeEventListener('click', handleCancel);
-          document.removeEventListener('keydown', handleKeyDown);
-          input.removeEventListener('blur', handleBlur);
-          document.removeEventListener('click', handleDocumentClick, true);
-        };
-        
-        // 焦點移除事件 - 在輸入框失焦時關閉對話框
-        const handleBlur = (e) => {
-          // 檢查焦點是否移動到對話框外
-          const activeElement = document.activeElement;
-          if (!dialog.contains(activeElement)) {
+        // 定义 handleOtherInputFocus - 在 closeDialog 定义之前
+        const handleOtherInputFocus = (e) => {
+          // 檢查是否是其他的 input/button 被 focus
+          if ((e.target.classList.contains('stat-input') || e.target.classList.contains('button-input')) && e.target !== input) {
             closeDialog();
           }
         };
         
+        const closeDialog = () => {
+          dialog.classList.remove('show');
+          // 移除 button 的 focus 类
+          button.classList.remove('focus');
+          // 使 button 失焦
+          button.blur();
+          // 移除所有事件监听器
+          input.removeEventListener('input', handleInputChange);
+          document.removeEventListener('keydown', handleKeyDown);
+          document.removeEventListener('click', handleDocumentClick, true);
+          document.removeEventListener('focus', handleOtherInputFocus, true);
+        };
+        
         // 點擊文檔外部時關閉對話框
         const handleDocumentClick = (e) => {
-          // 只在點擊不在 dialog 內時才關閉
-          if (dialog.contains(e.target)) {
+          // 檢查點擊是否在 dialog 或其容器內
+          if (dialog.contains(e.target) || (e.target.closest && e.target.closest('#numberInputDialog'))) {
             return;
           }
           closeDialog();
@@ -685,17 +680,17 @@
         
         // 鍵盤事件
         const handleKeyDown = (e) => {
-          if (e.key === 'Enter') handleConfirm();
-          if (e.key === 'Escape') handleCancel();
+          if (e.key === 'Escape') closeDialog();
         };
         
-        confirmBtn.addEventListener('click', handleConfirm);
-        cancelBtn.addEventListener('click', handleCancel);
+        input.addEventListener('input', handleInputChange);
         document.addEventListener('keydown', handleKeyDown);
-        input.addEventListener('blur', handleBlur);
         
         // 直接添加文檔點擊事件，無需延遲
         document.addEventListener('click', handleDocumentClick, true);
+        
+        // 當其他 inputbox/inputbutton 被 focus 時關閉對話框
+        document.addEventListener('focus', handleOtherInputFocus, true);
       }
       
       // 獲取對話框中輸入值的輔助函數
@@ -725,16 +720,16 @@
           <div class="panel-row">
             <div class="panel-label"></div>
             <div class="config-wrapper">
-              <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.9rem; text-align: center; width: 100px;">配置 1</div>
+              <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">配置 1</div>
               <div style="width: 20px;"></div>
             </div>
             <div class="config-wrapper">
-              <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.9rem; text-align: center; width: 100px;">配置 2</div>
+              <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">配置 2</div>
               <div style="width: 20px;"></div>
             </div>
             <div class="config-wrapper">
               <span class="middle-indicator">▲</span>
-              <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.9rem; text-align: center; width: 100px;">變動量</div>
+              <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">變動量</div>
               <div style="width: 20px;"></div>
             </div>
           </div>
