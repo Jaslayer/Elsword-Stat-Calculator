@@ -325,18 +325,28 @@ body {
 .input-panel-header .config-wrapper {
   min-height: 2.5rem;
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .input-panel-header .config-wrapper div {
   color: rgba(100, 150, 200, 0.8);
-  font-size: 1.6rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  display: flex;
-  align-items: flex-start;
-  height: 100%;
-  justify-content: center;
   text-align: center;
   width: 100%;
+}
+
+.input-panel-header .config-wrapper .config1-product-value,
+.input-panel-header .config-wrapper .config2-product-value {
+  font-size: 2.2rem;
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 700;
+  margin: 0;
+  line-height: 1;
 }
 
 .input-panel-header .middle-indicator {
@@ -516,7 +526,7 @@ body {
 }
 
 .middle-indicator.zero::before {
-  content: '−';
+  content: '•';
   font-size: 0.9rem;
   font-weight: 700;
 }
@@ -692,6 +702,152 @@ body {
   background: rgba(255, 255, 255, 0.15);
   border-color: rgba(100, 150, 200, 0.8);
   box-shadow: 0 0 12px rgba(100, 150, 200, 0.3);
+}
+
+/* 雙輸入框對話框樣式 */
+.dual-input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.dialog-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.dialog-input-label {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* 下拉清單樣式 */
+.dialog-select {
+  width: 100%;
+  padding: 0.8rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.9);
+  font-family: "Manrope", sans-serif;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 150ms ease;
+  box-sizing: border-box;
+}
+
+.dialog-select:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.dialog-select:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(100, 150, 200, 0.8);
+  box-shadow: 0 0 12px rgba(100, 150, 200, 0.3);
+}
+
+/* 下拉清單選項樣式 */
+.dialog-select option {
+  background: rgba(27, 35, 49, 0.95);
+  color: rgba(255, 255, 255, 0.9);
+  padding: 0.5rem;
+}
+
+.dialog-select option:checked {
+  background: rgba(100, 150, 200, 0.5);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* 複選框組樣式 */
+.checkbox-group {
+  padding: 0.5rem 0;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.95rem;
+  user-select: none;
+  padding: 0.5rem;
+  border-radius: 4px;
+  transition: all 150ms ease;
+}
+
+.checkbox-label:hover {
+  background: rgba(100, 150, 200, 0.1);
+}
+
+.dialog-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: rgba(100, 150, 200, 0.8);
+  transition: all 150ms ease;
+}
+
+.dialog-checkbox:hover {
+  accent-color: rgba(100, 150, 200, 1);
+}
+
+/* 對話框 Spinner 按鈕樣式 */
+.dialog-spinner-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.dialog-spinner-wrapper .dialog-input {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.dialog-spinner-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 1.5rem;
+}
+
+.dialog-spinner-btn {
+  width: 28px;
+  height: 20px;
+  padding: 0;
+  background: rgba(100, 150, 200, 0.4);
+  border: 1px solid rgba(100, 150, 200, 0.6);
+  border-radius: 3px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 150ms ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialog-spinner-btn:hover {
+  background: rgba(100, 150, 200, 0.6);
+  border-color: rgba(100, 150, 200, 0.9);
+  color: rgba(255, 255, 255, 1);
+}
+
+.dialog-spinner-btn:active {
+  background: rgba(100, 150, 200, 0.8);
+  transform: scale(0.95);
+}
+
+.dialog-checkbox:focus {
+  outline: 2px solid rgba(100, 150, 200, 0.6);
+  outline-offset: 2px;
 }
 
 @media (max-width: 760px) {
