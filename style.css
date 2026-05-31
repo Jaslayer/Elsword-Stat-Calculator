@@ -799,49 +799,32 @@ body {
 }
 
 /* 對話框 Spinner 按鈕樣式 */
-.dialog-spinner-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  position: relative;
-}
-
-.dialog-spinner-wrapper .dialog-input {
-  flex: 1;
-  margin-bottom: 0;
-}
-
-.dialog-spinner-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-bottom: 1.5rem;
-}
-
 .dialog-spinner-btn {
-  width: 28px;
+  width: 24px;
   height: 20px;
   padding: 0;
-  background: rgba(100, 150, 200, 0.4);
-  border: 1px solid rgba(100, 150, 200, 0.6);
+  background: rgba(100, 150, 200, 0.3);
+  border: 1px solid rgba(100, 150, 200, 0.5);
   border-radius: 3px;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.8rem;
   cursor: pointer;
   transition: all 150ms ease;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-weight: 600;
+  line-height: 1;
 }
 
 .dialog-spinner-btn:hover {
-  background: rgba(100, 150, 200, 0.6);
-  border-color: rgba(100, 150, 200, 0.9);
-  color: rgba(255, 255, 255, 1);
+  background: rgba(100, 150, 200, 0.5);
+  border-color: rgba(100, 150, 200, 0.8);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .dialog-spinner-btn:active {
-  background: rgba(100, 150, 200, 0.8);
+  background: rgba(100, 150, 200, 0.7);
   transform: scale(0.95);
 }
 
@@ -856,4 +839,17 @@ body {
     margin: 1.3rem auto;
     min-height: 60vh;
   }
+}
+
+/* Screen reader only - hide visually but keep accessible */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }

@@ -379,14 +379,16 @@
             <div class="panel-row">
               <div class="panel-label">${statItem.textContent}</div>
               <div class="config-wrapper">
-                <button class="button-input left-input" data-index="${index}" data-type="left" data-value="0" data-min="0"></button>
+                <label for="stat-${index}-left" class="sr-only">配置 1</label>
+                <button class="button-input left-input" id="stat-${index}-left" data-index="${index}" data-type="left" data-value="0" data-min="0"></button>
                 <div class="input-spinner">
                   <button class="spinner-btn up" data-type="left" data-index="${index}">∧</button>
                   <button class="spinner-btn down" data-type="left" data-index="${index}">∨</button>
                 </div>
               </div>
               <div class="config-wrapper">
-                <button class="button-input result-input" data-index="${index}" data-type="result" data-value="0" data-min="0"></button>
+                <label for="stat-${index}-result" class="sr-only">配置 2</label>
+                <button class="button-input result-input" id="stat-${index}-result" data-index="${index}" data-type="result" data-value="0" data-min="0"></button>
                 <div class="input-spinner">
                   <button class="spinner-btn up" data-type="result" data-index="${index}">∧</button>
                   <button class="spinner-btn down" data-type="result" data-index="${index}">∨</button>
@@ -394,7 +396,8 @@
               </div>
               <div class="config-wrapper">
                 <span class="middle-indicator">▲</span>
-                <input type="number" class="stat-input short-input middle-input" placeholder="變動量" data-index="${index}" />
+                <label for="stat-${index}-middle" class="sr-only">變動量</label>
+                <input type="number" class="stat-input short-input middle-input" placeholder="變動量" data-index="${index}" id="stat-${index}-middle" name="stat-${index}-middle" />
                 <div class="input-spinner">
                   <button class="spinner-btn up" data-type="middle" data-index="${index}">∧</button>
                   <button class="spinner-btn down" data-type="middle" data-index="${index}">∨</button>
@@ -409,14 +412,16 @@
             <div class="panel-row">
               <div class="panel-label">${statItem.textContent}</div>
               <div class="config-wrapper">
-                <input type="number" class="stat-input short-input left-input" data-index="${index}" min="0" />
+                <label for="stat-${index}-left" class="sr-only">配置 1</label>
+                <input type="number" class="stat-input short-input left-input" data-index="${index}" min="0" id="stat-${index}-left" name="stat-${index}-left" />
                 <div class="input-spinner">
                   <button class="spinner-btn up" data-type="left" data-index="${index}">∧</button>
                   <button class="spinner-btn down" data-type="left" data-index="${index}">∨</button>
                 </div>
               </div>
               <div class="config-wrapper">
-                <input type="number" class="stat-input short-input result-input" data-index="${index}" min="0" />
+                <label for="stat-${index}-result" class="sr-only">配置 2</label>
+                <input type="number" class="stat-input short-input result-input" data-index="${index}" min="0" id="stat-${index}-result" name="stat-${index}-result" />
                 <div class="input-spinner">
                   <button class="spinner-btn up" data-type="result" data-index="${index}">∧</button>
                   <button class="spinner-btn down" data-type="result" data-index="${index}">∨</button>
@@ -424,7 +429,8 @@
               </div>
               <div class="config-wrapper">
                 <span class="middle-indicator">▲</span>
-                <input type="number" class="stat-input short-input middle-input" placeholder="+/-" data-index="${index}" />
+                <label for="stat-${index}-middle" class="sr-only">變動量</label>
+                <input type="number" class="stat-input short-input middle-input" placeholder="+/-" data-index="${index}" id="stat-${index}-middle" name="stat-${index}-middle" />
                 <div class="input-spinner">
                   <button class="spinner-btn up" data-type="middle" data-index="${index}">∧</button>
                   <button class="spinner-btn down" data-type="middle" data-index="${index}">∨</button>
@@ -583,9 +589,9 @@
             // 檢查是否有特殊對話框配置（如適應力）
             const itemIndex = parseInt(panelDiv.dataset.index);
             if (SPECIAL_DIALOGS[itemIndex]) {
-              // 如果有特殊對話框，直接打開對話框
+              // 如果有特殊對話框，打開對話框並傳遞增量
               const type = inputElement.classList.contains('left-input') ? 'left' : 'result';
-              openSpecialDialog(inputElement, type, itemIndex, panelDiv, SPECIAL_DIALOGS[itemIndex]);
+              openSpecialDialog(inputElement, type, itemIndex, panelDiv, SPECIAL_DIALOGS[itemIndex], increment);
               return;
             }
             
@@ -707,10 +713,38 @@
         updateMiddleIndicator();
       }
       
-      // 打開數字輸入對話框 - 檢測適應力並使用雙輸入框
-// =============== 特殊對話框配置 (可擴展框架) ===============
+      // =============== 通用對話框配置工廠函數 ===============
+      // 為簡單的數字項目生成統一配置
+      function createSimpleNumberConfig(statIndex, statName) {
+        return {
+          type: 'simple-number',
+          dialogId: `stat-dialog-${statIndex}`,
+          fields: [
+            {
+              name: 'value',
+              type: 'number',
+              label: statName,
+              placeholder: '輸入數字',
+              className: 'stat-input-field',
+              minValue: 0
+            }
+          ],
+          separator: '',
+          displayField: 'value',
+          parse: (value) => ({
+            value: parseFloat(value) || 0
+          }),
+          serialize: (values) => String(values.value),
+          getDisplayValue: (values) => String(values.value)
+        };
+      }
+
+      // =============== 特殊對話框配置 (可擴展框架) ===============
       const SPECIAL_DIALOGS = {
-        1: { // 適應力 (Adaptability)
+        // 0: 物/魔攻擊力
+        0: createSimpleNumberConfig(0, '物/魔攻擊力'),
+        
+        1: { // 適應力 (Adaptability) - 特殊多字段配置
           type: 'multi-field',
           dialogId: 'adaptabilityInputDialog',
           fields: [
@@ -775,71 +809,82 @@
             // 調用 calc.js 中的計算函數
             return calculateAdaptabilityValue(values).toString();
           }
-        }
-        // 其他特殊項目配置可以在這裡添加
-        // 2: { ... },
-        // 3: { ... }
+        },
+        
+        // 2: 致命一擊傷害
+        2: createSimpleNumberConfig(2, '致命一擊傷害'),
+        
+        // 4: Boss 傷害
+        4: createSimpleNumberConfig(4, 'Boss 傷害'),
+        
+        // 5: 50%以上/以下
+        5: createSimpleNumberConfig(5, '50%以上/以下'),
+        
+        // 10: 其他
+        10: createSimpleNumberConfig(10, '其他')
       };
 
       // =============== 通用特殊對話框打開函數 ===============
-      function openSpecialDialog(button, type, index, panelDiv, config) {
+      function openSpecialDialog(button, type, index, panelDiv, config, spinnerIncrement = 0) {
         // 創建或獲取對話框
         let dialog = document.getElementById(config.dialogId);
         if (!dialog) {
           dialog = document.createElement('div');
           dialog.id = config.dialogId;
           dialog.className = 'number-input-dialog';
-          
-          // 動態生成對話框內容
-          let fieldsHTML = '';
-          config.fields.forEach(field => {
-            if (field.type === 'number') {
-              fieldsHTML += `
-                <div class="dialog-input-group">
-                  <label class="dialog-input-label">${field.label}</label>
-                  <div class="dialog-spinner-wrapper">
-                    <input type="number" class="dialog-input ${field.className}" placeholder="${field.placeholder}" />
-                    <div class="dialog-spinner-buttons">
-                      <button class="dialog-spinner-btn dialog-spinner-up" type="button" aria-label="增加">▲</button>
-                      <button class="dialog-spinner-btn dialog-spinner-down" type="button" aria-label="減少">▼</button>
-                    </div>
-                  </div>
-                </div>
-              `;
-            } else if (field.type === 'select') {
-              let optionsHTML = '';
-              field.options.forEach(option => {
-                optionsHTML += `<option value="${option.value}">${option.label}</option>`;
-              });
-              fieldsHTML += `
-                <div class="dialog-input-group">
-                  <label class="dialog-input-label">${field.label}</label>
-                  <select class="dialog-select ${field.className}">
-                    ${optionsHTML}
-                  </select>
-                </div>
-              `;
-            } else if (field.type === 'checkbox') {
-              fieldsHTML += `
-                <div class="dialog-input-group checkbox-group">
-                  <label class="checkbox-label">
-                    <input type="checkbox" class="dialog-checkbox ${field.className}" />
-                    <span>${field.label}</span>
-                  </label>
-                </div>
-              `;
-            }
-          });
-          
-          dialog.innerHTML = `
-            <div class="detailed-dialog">
-              <div class="dual-input-container">
-                ${fieldsHTML}
-              </div>
-            </div>
-          `;
           document.getElementById('calcPanel').appendChild(dialog);
         }
+        
+        // 清空對話框內容並重新生成（這樣會自動移除舊的事件監聽器）
+        let fieldsHTML = '';
+        config.fields.forEach((field, fieldIndex) => {
+          if (field.type === 'number') {
+            const inputId = `dialog-${index}-${field.className}-${fieldIndex}`;
+            fieldsHTML += `
+              <div class="dialog-input-group">
+                <label class="dialog-input-label" for="${inputId}">${field.label}</label>
+                <div style="display: flex; gap: 0.5rem;">
+                  <input type="number" id="${inputId}" class="dialog-input ${field.className}" placeholder="${field.placeholder}" style="flex: 1;" />
+                  <div style="display: flex; flex-direction: column; gap: 2px;">
+                    <button class="dialog-spinner-btn dialog-spinner-up" type="button" aria-label="增加">∧</button>
+                    <button class="dialog-spinner-btn dialog-spinner-down" type="button" aria-label="減少">∨</button>
+                  </div>
+                </div>
+              </div>
+            `;
+          } else if (field.type === 'select') {
+            let optionsHTML = '';
+            field.options.forEach(option => {
+              optionsHTML += `<option value="${option.value}">${option.label}</option>`;
+            });
+            const selectId = `dialog-${index}-${field.className}-${fieldIndex}`;
+            fieldsHTML += `
+              <div class="dialog-input-group">
+                <label class="dialog-input-label" for="${selectId}">${field.label}</label>
+                <select id="${selectId}" class="dialog-select ${field.className}">
+                  ${optionsHTML}
+                </select>
+              </div>
+            `;
+          } else if (field.type === 'checkbox') {
+            fieldsHTML += `
+              <div class="dialog-input-group checkbox-group">
+                <label class="checkbox-label">
+                  <input type="checkbox" class="dialog-checkbox ${field.className}" />
+                  <span>${field.label}</span>
+                </label>
+              </div>
+            `;
+          }
+        });
+        
+        dialog.innerHTML = `
+          <div class="detailed-dialog">
+            <div class="dual-input-container">
+              ${fieldsHTML}
+            </div>
+          </div>
+        `;
         
         // 獲取所有字段元素
         const fieldElements = {};
@@ -862,6 +907,19 @@
         
         // 解析並設置初始值
         const parsedValues = config.parse(button.dataset.value || '');
+        
+        // 如果有 spinner 增量，應用到相應字段
+        if (spinnerIncrement !== 0) {
+          // 通用的 spinner 增量處理
+          if (config.type === 'simple-number') {
+            // 簡單數字項目
+            parsedValues.value = Math.max(0, parsedValues.value + spinnerIncrement);
+          } else if (config.type === 'multi-field') {
+            // 多字段項目（如適應力）- 配置1和配置2都增加 panel 值，保持行為一致
+            parsedValues.panel = Math.max(0, parsedValues.panel + spinnerIncrement);
+          }
+        }
+        
         config.fields.forEach(field => {
           const element = fieldElements[field.name];
           if (element) {
@@ -925,6 +983,9 @@
           triggerFullStatUpdate(button, changeType);
         };
         
+        // 立即觸發一次 handleInputChange 來序列化初始值並保存到 button
+        handleInputChange();
+        
         // 定義焦點處理
         const handleOtherInputFocus = (e) => {
           const isOwnElement = config.fields.some(field => fieldElements[field.name] === e.target);
@@ -984,10 +1045,10 @@
               element.addEventListener('change', handleInputChange);
               
               // 為數字輸入框添加 spinner 按鈕事件
-              const spinnerWrapper = element.closest('.dialog-spinner-wrapper');
-              if (spinnerWrapper) {
-                const upBtn = spinnerWrapper.querySelector('.dialog-spinner-up');
-                const downBtn = spinnerWrapper.querySelector('.dialog-spinner-down');
+              const parentDiv = element.parentElement;
+              if (parentDiv) {
+                const upBtn = parentDiv.querySelector('.dialog-spinner-up');
+                const downBtn = parentDiv.querySelector('.dialog-spinner-down');
                 
                 if (upBtn) {
                   upBtn.addEventListener('click', (e) => {
@@ -1024,122 +1085,10 @@
       }
       
       function openNumberInputDialog(button, type, index, panelDiv) {
-        // 檢查是否有特殊對話框配置
+        // 所有 button-input 項目都在 SPECIAL_DIALOGS 中有配置，統一使用 openSpecialDialog
         if (SPECIAL_DIALOGS[index]) {
           openSpecialDialog(button, type, index, panelDiv, SPECIAL_DIALOGS[index]);
-          return;
         }
-        
-        // 創建對話框
-        let dialog = document.getElementById('numberInputDialog');
-        if (!dialog) {
-          dialog = document.createElement('div');
-          dialog.id = 'numberInputDialog';
-          dialog.className = 'number-input-dialog';
-          dialog.innerHTML = `
-            <div class="detailed-dialog">
-              <input type="number" class="dialog-input" placeholder="輸入數字" />
-            </div>
-          `;
-          document.getElementById('calcPanel').appendChild(dialog);
-        }
-        
-        const input = dialog.querySelector('.dialog-input');
-        const calcPanel = document.getElementById('calcPanel');
-        
-        // 計算對話框位置
-        // 獲取按鈕所在的輸入面板
-        const inputPanel = panelDiv;
-        const inputPanelRect = inputPanel.getBoundingClientRect();
-        const calcPanelRect = calcPanel.getBoundingClientRect();
-        
-        // 計算相對於 calc-panel 的位置
-        const topPos = inputPanelRect.top - calcPanelRect.top;
-        // left 62%
-        const leftPos = calcPanel.offsetWidth * 0.62;
-        
-        // 設置對話框位置
-        dialog.style.top = topPos + 'px';
-        dialog.style.left = leftPos + 'px';
-        
-        // 設置初始值
-        input.value = '';
-        
-        // 添加 button 的 focus 類以保持視覺焦點狀態
-        button.classList.add('focus');
-        
-        // 顯示對話框
-        dialog.classList.add('show');
-        input.focus();
-        input.select();
-        
-        // 實時同步輸入值到 button
-        const handleInputChange = () => {
-          let value = roundNumber(parseFloat(input.value) || 0);
-          
-          // 限制 left-input 和 result-input 的最小值為 0
-          if ((button.classList.contains('left-input') || button.classList.contains('result-input')) && value < 0) {
-            value = 0;
-            input.value = 0;
-          }
-          
-          button.dataset.value = value;
-          button.textContent = value;
-          
-          // 觸發三向綁定更新
-          if (panelDiv.triggerThreeWayBinding) {
-            const changeType = type === 'left' ? 'left' : 'result';
-            panelDiv.triggerThreeWayBinding(changeType);
-          }
-          
-          // 調用主幹函數進行完整更新流程
-          const changeType = type === 'left' ? 'left' : 'result';
-          triggerFullStatUpdate(button, changeType);
-        };
-        
-        // 定义 handleOtherInputFocus - 在 closeDialog 定义之前
-        const handleOtherInputFocus = (e) => {
-          // 檢查是否是其他的 input/button 被 focus
-          if ((e.target.classList.contains('stat-input') || e.target.classList.contains('button-input')) && e.target !== input) {
-            closeDialog();
-          }
-        };
-        
-        const closeDialog = () => {
-          dialog.classList.remove('show');
-          // 移除 button 的 focus 类
-          button.classList.remove('focus');
-          // 使 button 失焦
-          button.blur();
-          // 移除所有事件监听器
-          input.removeEventListener('input', handleInputChange);
-          document.removeEventListener('keydown', handleKeyDown);
-          document.removeEventListener('click', handleDocumentClick, true);
-          document.removeEventListener('focus', handleOtherInputFocus, true);
-        };
-        
-        // 點擊文檔外部時關閉對話框
-        const handleDocumentClick = (e) => {
-          // 檢查點擊是否在 dialog 或其容器內
-          if (dialog.contains(e.target) || (e.target.closest && e.target.closest('#numberInputDialog'))) {
-            return;
-          }
-          closeDialog();
-        };
-        
-        // 鍵盤事件
-        const handleKeyDown = (e) => {
-          if (e.key === 'Escape') closeDialog();
-        };
-        
-        input.addEventListener('input', handleInputChange);
-        document.addEventListener('keydown', handleKeyDown);
-        
-        // 直接添加文檔點擊事件，無需延遲
-        document.addEventListener('click', handleDocumentClick, true);
-        
-        // 當其他 inputbox/inputbutton 被 focus 時關閉對話框
-        document.addEventListener('focus', handleOtherInputFocus, true);
       }
       
       // 獲取對話框中輸入值的輔助函數 - 支持自訂值格式
