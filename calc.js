@@ -298,27 +298,67 @@ function calculateAllStatProducts() {
 
 /**
  * 計算配置1的乘積，當值為0或空時以1計算
+ * 特殊處理: 適應力先除以100再加1
  */
 function calculateConfig1Product() {
-  const values = getConfig1Values();
-  if (values.length === 0) return 1;
-  const product = values.reduce((acc, val) => {
-    const effectiveValue = (val === 0 || val === null || val === undefined) ? 1 : val;
-    return acc * effectiveValue;
-  }, 1);
+  const panels = document.querySelectorAll('.input-panel-item');
+  if (panels.length === 0) return 1;
+  
+  let product = 1;
+  panels.forEach(panel => {
+    const leftInput = panel.querySelector('.left-input');
+    if (leftInput) {
+      const itemIndex = parseInt(panel.dataset.index);
+      let value;
+      
+      if (itemIndex === STAT_ITEMS.ADAPTABILITY) {
+        // 適應力: 使用計算結果，並先除以100再加1
+        const result = calculateAdaptability();
+        value = result.config1;
+        const effectiveValue = (value === 0 || value === null || value === undefined) ? 1 : (value / 100 + 1);
+        product *= effectiveValue;
+      } else {
+        // 其他項目: 當值為0或空時以1計算
+        value = parseInputValue(leftInput);
+        const effectiveValue = (value === 0 || value === null || value === undefined) ? 1 : value;
+        product *= effectiveValue;
+      }
+    }
+  });
+  
   return roundNumber(product);
 }
 
 /**
  * 計算配置2的乘積，當值為0或空時以1計算
+ * 特殊處理: 適應力先除以100再加1
  */
 function calculateConfig2Product() {
-  const values = getConfig2Values();
-  if (values.length === 0) return 1;
-  const product = values.reduce((acc, val) => {
-    const effectiveValue = (val === 0 || val === null || val === undefined) ? 1 : val;
-    return acc * effectiveValue;
-  }, 1);
+  const panels = document.querySelectorAll('.input-panel-item');
+  if (panels.length === 0) return 1;
+  
+  let product = 1;
+  panels.forEach(panel => {
+    const resultInput = panel.querySelector('.result-input');
+    if (resultInput) {
+      const itemIndex = parseInt(panel.dataset.index);
+      let value;
+      
+      if (itemIndex === STAT_ITEMS.ADAPTABILITY) {
+        // 適應力: 使用計算結果，並先除以100再加1
+        const result = calculateAdaptability();
+        value = result.config2;
+        const effectiveValue = (value === 0 || value === null || value === undefined) ? 1 : (value / 100 + 1);
+        product *= effectiveValue;
+      } else {
+        // 其他項目: 當值為0或空時以1計算
+        value = parseInputValue(resultInput);
+        const effectiveValue = (value === 0 || value === null || value === undefined) ? 1 : value;
+        product *= effectiveValue;
+      }
+    }
+  });
+  
   return roundNumber(product);
 }
 

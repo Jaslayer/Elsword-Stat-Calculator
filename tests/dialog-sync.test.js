@@ -19,7 +19,7 @@ describe('UI 互動測試 - 詳細對話框消失', () => {
     dialog.className = 'number-input-dialog show';
     dialog.innerHTML = `
       <div class="detailed-dialog">
-        <input type="number" class="dialog-input" placeholder="輸入數字" />
+        <input type="number" class="dialog-input" />
       </div>
     `;
     calcPanel.appendChild(dialog);
@@ -121,7 +121,7 @@ describe('UI 互動測試 - 數值同步', () => {
     dialog.className = 'number-input-dialog show';
     dialog.innerHTML = `
       <div class="detailed-dialog">
-        <input type="number" class="dialog-input" placeholder="輸入數字" />
+        <input type="number" class="dialog-input" />
       </div>
     `;
     calcPanel.appendChild(dialog);

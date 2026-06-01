@@ -236,10 +236,6 @@ body {
   cursor: default;
 }
 
-.stat-input::placeholder {
-  color: rgba(255, 255, 255, 0.4);
-}
-
 .stat-input:focus {
   outline: 2px solid rgba(100, 150, 200, 0.9);
   outline-offset: 2px;
@@ -498,6 +494,11 @@ body {
   background: rgba(100, 150, 200, 0.15);
 }
 
+/* 變動量 - 左對齊 */
+.panel-row .config-wrapper:nth-child(4) {
+  justify-content: flex-start;
+}
+
 .middle-indicator {
   display: flex;
   align-items: center;
@@ -693,8 +694,19 @@ body {
   color: rgba(255, 255, 255, 0.9);
   font-family: "Manrope", sans-serif;
   font-size: 1rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.8rem;
   box-sizing: border-box;
+}
+
+/* 隱藏 number input 的預設上下箭頭 */
+.dialog-input[type="number"]::-webkit-outer-spin-button,
+.dialog-input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.dialog-input[type="number"] {
+  -moz-appearance: textfield;
 }
 
 .dialog-input:focus {
@@ -719,7 +731,7 @@ body {
 
 .dialog-input-label {
   color: rgba(255, 255, 255, 0.7);
-  font-size: 0.85rem;
+  font-size: 1rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -766,7 +778,7 @@ body {
 
 /* 複選框組樣式 */
 .checkbox-group {
-  padding: 0.5rem 0;
+  padding: 0.2rem 0;
 }
 
 .checkbox-label {
@@ -777,7 +789,7 @@ body {
   color: rgba(255, 255, 255, 0.8);
   font-size: 0.95rem;
   user-select: none;
-  padding: 0.5rem;
+  padding: 0.2rem, 0.5rem;
   border-radius: 4px;
   transition: all 150ms ease;
 }

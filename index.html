@@ -397,11 +397,7 @@
               <div class="config-wrapper">
                 <span class="middle-indicator">▲</span>
                 <label for="stat-${index}-middle" class="sr-only">變動量</label>
-                <input type="number" class="stat-input short-input middle-input" placeholder="變動量" data-index="${index}" id="stat-${index}-middle" name="stat-${index}-middle" />
-                <div class="input-spinner">
-                  <button class="spinner-btn up" data-type="middle" data-index="${index}">∧</button>
-                  <button class="spinner-btn down" data-type="middle" data-index="${index}">∨</button>
-                </div>
+                <input type="number" class="stat-input short-input middle-input" data-index="${index}" id="stat-${index}-middle" name="stat-${index}-middle" />
               </div>
             </div>
           `;
@@ -430,11 +426,7 @@
               <div class="config-wrapper">
                 <span class="middle-indicator">▲</span>
                 <label for="stat-${index}-middle" class="sr-only">變動量</label>
-                <input type="number" class="stat-input short-input middle-input" placeholder="+/-" data-index="${index}" id="stat-${index}-middle" name="stat-${index}-middle" />
-                <div class="input-spinner">
-                  <button class="spinner-btn up" data-type="middle" data-index="${index}">∧</button>
-                  <button class="spinner-btn down" data-type="middle" data-index="${index}">∨</button>
-                </div>
+                <input type="number" class="stat-input short-input middle-input" data-index="${index}" id="stat-${index}-middle" name="stat-${index}-middle" />
               </div>
             </div>
           `;
@@ -524,7 +516,8 @@
             } else {
               element.dataset.value = precisedValue;
             }
-            element.textContent = precisedValue;
+            // 如果數值為0，保持空白；否則顯示數值
+            element.textContent = precisedValue === 0 ? '' : precisedValue;
           } else {
             element.value = precisedValue;
           }
@@ -697,8 +690,6 @@
             let inputElement;
             if (dataType === 'left') {
               inputElement = leftInput;
-            } else if (dataType === 'middle') {
-              inputElement = middleInput;
             } else if (dataType === 'result') {
               inputElement = resultInput;
             }
@@ -724,7 +715,6 @@
               name: 'value',
               type: 'number',
               label: statName,
-              placeholder: '輸入數字',
               className: 'stat-input-field',
               minValue: 0
             }
@@ -752,7 +742,6 @@
               name: 'panel',
               type: 'number',
               label: '面板',
-              placeholder: '輸入面板值',
               className: 'adaptability-panel-input',
               minValue: 0
             },
@@ -774,7 +763,6 @@
               name: 'super_adapt',
               type: 'number',
               label: '超適應力',
-              placeholder: '輸入超適應力值',
               className: 'adaptability-super-input',
               minValue: 0
             },
@@ -844,7 +832,7 @@
               <div class="dialog-input-group">
                 <label class="dialog-input-label" for="${inputId}">${field.label}</label>
                 <div style="display: flex; gap: 0.5rem;">
-                  <input type="number" id="${inputId}" class="dialog-input ${field.className}" placeholder="${field.placeholder}" style="flex: 1;" />
+                  <input type="number" id="${inputId}" class="dialog-input ${field.className}" style="flex: 1;" />
                   <div style="display: flex; flex-direction: column; gap: 2px;">
                     <button class="dialog-spinner-btn dialog-spinner-up" type="button" aria-label="增加">∧</button>
                     <button class="dialog-spinner-btn dialog-spinner-down" type="button" aria-label="減少">∨</button>
@@ -976,7 +964,9 @@
           button.dataset.value = serialized;
           
           // 更新按鈕顯示（只顯示指定字段）
-          button.textContent = config.getDisplayValue ? config.getDisplayValue(values) : values[config.displayField];
+          const displayValue = config.getDisplayValue ? config.getDisplayValue(values) : values[config.displayField];
+          // 如果顯示值為0或'0'，保持空白；否則顯示值
+          button.textContent = (displayValue === 0 || displayValue === '0') ? '' : displayValue;
           
           // 調用主幹函數進行完整更新流程
           const changeType = type === 'left' ? 'left' : 'result';
