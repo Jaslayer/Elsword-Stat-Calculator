@@ -267,7 +267,7 @@ describe('UI 互動測試 - Input Panel Header 排序', () => {
     // 創建 header
     headerPanel = document.createElement('div');
     headerPanel.className = 'input-panel-header';
-    headerPanel.innerHTML = '<div class="panel-row"><div class="panel-label">配置名稱</div></div>';
+    headerPanel.innerHTML = '<div class="panel-header-row"><div class="panel-label">配置名稱</div></div>';
     wrapper.appendChild(headerPanel);
 
     // 創建三個 panels

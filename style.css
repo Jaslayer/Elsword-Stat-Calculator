@@ -306,7 +306,7 @@ body {
   align-items: flex-start;
 }
 
-.input-panel-header .panel-row {
+.input-panel-header .panel-header-row {
   width: 100%;
   height: 100%;
   display: flex;
@@ -337,12 +337,17 @@ body {
 }
 
 .input-panel-header .config-wrapper .config1-product-value,
-.input-panel-header .config-wrapper .config2-product-value {
+.input-panel-header .config-wrapper .config2-product-value,
+.input-panel-header .config-wrapper .config-ratio-value {
   font-size: 2.2rem;
   color: rgba(255, 255, 255, 0.95);
   font-weight: 700;
   margin: 0;
   line-height: 1;
+}
+
+.input-panel-header .config-wrapper .config-ratio-value {
+  font-weight: 800;
 }
 
 .input-panel-header .middle-indicator {
@@ -466,7 +471,8 @@ body {
   }
 }
 
-.panel-row {
+.panel-row,
+.panel-header-row {
   display: flex;
   gap: 0.5rem;
   align-items: center;
@@ -485,17 +491,20 @@ body {
 }
 
 /* 配置1 - 紅色背景 */
-.panel-row .config-wrapper:nth-child(2) {
+.panel-row .config-wrapper:nth-child(2),
+.panel-header-row .config-wrapper:nth-child(2) {
   background: rgba(255, 100, 100, 0.15);
 }
 
 /* 配置2 - 藍色背景 */
-.panel-row .config-wrapper:nth-child(3) {
+.panel-row .config-wrapper:nth-child(3),
+.panel-header-row .config-wrapper:nth-child(3) {
   background: rgba(100, 150, 200, 0.15);
 }
 
 /* 變動量 - 左對齊 */
-.panel-row .config-wrapper:nth-child(4) {
+.panel-row .config-wrapper:nth-child(4),
+.panel-header-row .config-wrapper:nth-child(4) {
   justify-content: flex-start;
 }
 

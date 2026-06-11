@@ -169,7 +169,7 @@
           const headerPanel = document.createElement('div');
           headerPanel.className = 'input-panel-header';
           headerPanel.innerHTML = `
-            <div class="panel-row">
+            <div class="panel-header-row">
               <div class="panel-label">配置名稱</div>
               <div class="config-wrapper">
                 <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">配置 1</div>
@@ -180,8 +180,8 @@
                 <div style="width: 20px;"></div>
               </div>
               <div class="config-wrapper">
-                <span class="middle-indicator">▲</span>
-                <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">變動量</div>
+                <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">1</div>
+                <div class="config-ratio-value">-</div>
                 <div style="width: 20px;"></div>
               </div>
             </div>
@@ -1114,7 +1114,7 @@
         const headerPanel = document.createElement('div');
         headerPanel.className = 'input-panel-header';
         headerPanel.innerHTML = `
-          <div class="panel-row">
+          <div class="panel-header-row">
             <div class="panel-label"></div>
             <div class="config-wrapper">
               <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">配置 1</div>
@@ -1125,8 +1125,8 @@
               <div style="width: 20px;"></div>
             </div>
             <div class="config-wrapper">
-              <span class="middle-indicator">▲</span>
               <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">變動量</div>
+              <div class="config-ratio-value">-</div>
               <div style="width: 20px;"></div>
             </div>
           </div>

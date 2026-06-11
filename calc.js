@@ -399,6 +399,18 @@ function updateProductDisplay() {
     config2Wrapper.appendChild(config2ProductDiv);
   }
   config2ProductDiv.textContent = config2Product;
+  
+  // 更新比值 (配置1 ÷ 配置2)
+  const ratioWrapper = configWrappers[2];
+  let ratioDiv = ratioWrapper.querySelector('.config-ratio-value');
+  if (!ratioDiv) {
+    ratioDiv = document.createElement('div');
+    ratioDiv.className = 'config-ratio-value';
+    ratioDiv.style.cssText = 'color: rgba(255, 255, 255, 0.9); text-align: center; margin-bottom: 4px; font-weight: 600;';
+    ratioWrapper.appendChild(ratioDiv);
+  }
+  const ratioValue = config2Product === 0 ? '-' : (config1Product / config2Product).toFixed(7);
+  ratioDiv.textContent = ratioValue;
 }
 
 // 導出函數供外部使用
