@@ -363,6 +363,84 @@ function calculateConfig2Product() {
 }
 
 /**
+ * 更新 header 中的箭頭顯示
+ * 配置1大時：青色向下箭頭 ▼ (negative)
+ * 配置1小時：紅色向上箭頭 ▲ (positive)
+ * 配置相等時：白色等號 = (neutral)
+ */
+function updateArrowDisplay(config1Product, config2Product) {
+  const headerPanel = document.querySelector('.input-panel-header');
+  if (!headerPanel) return;
+  
+  const arrowLeft = headerPanel.querySelector('.arrow-left');
+  if (!arrowLeft) return;
+  
+  // 重置類名
+  arrowLeft.classList.remove('positive', 'negative', 'neutral');
+  
+  // 根據配置值比較決定箭頭樣式
+  if (config1Product > config2Product) {
+    // 配置1大：左箭頭青色向下 ▼
+    arrowLeft.classList.add('negative');
+    arrowLeft.style.color = '#00ddff';
+    arrowLeft.style.textShadow = '0 0 8px rgba(0, 221, 255, 0.6)';
+    arrowLeft.style.transform = 'scaleY(-1)';
+    arrowLeft.textContent = '▲';
+  } else if (config1Product < config2Product) {
+    // 配置1小：左箭頭紅色向上 ▲
+    arrowLeft.classList.add('positive');
+    arrowLeft.style.color = '#ff3333';
+    arrowLeft.style.textShadow = '0 0 8px rgba(255, 51, 51, 0.6)';
+    arrowLeft.style.transform = 'scaleY(1)';
+    arrowLeft.textContent = '▲';
+  } else {
+    // 相等：白色等號 =
+    arrowLeft.classList.add('neutral');
+    arrowLeft.style.color = '#ffffff';
+    arrowLeft.style.textShadow = 'none';
+    arrowLeft.style.transform = 'scaleY(1)';
+    arrowLeft.textContent = '=';
+  }
+}
+
+/**
+ * 根據數字長度動態計算適合的字體大小
+ * ✅ 使用 ComputeEngine 的版本（避免重複代碼）
+ * @param {string|number} numberValue - 數字值
+ * @returns {number} 字體大小（像素）
+ */
+function getAdaptiveFontSize(numberValue) {
+  if (window.ComputeEngine && window.ComputeEngine.getAdaptiveFontSize) {
+    return window.ComputeEngine.getAdaptiveFontSize(numberValue);
+  }
+  
+  // 備用實現（以防 ComputeEngine 未加載）
+  const numberStr = String(numberValue);
+  const length = numberStr.replace(/[^0-9]/g, '').length;
+  if (length <= 8) return 30;
+  if (length <= 10) return 24;
+  if (length <= 12) return 14;
+  return 12;
+}
+
+/**
+ * 計算配置1和配置2的比值
+ * @param {number} config1Product - 配置1的乘積
+ * @param {number} config2Product - 配置2的乘積
+ * @returns {string} 比值字符串（7位小數），若分母為0則返回 '-'
+ */
+function calculateRatioValue(config1Product, config2Product) {
+  const maxProduct = Math.max(config1Product, config2Product);
+  const minProduct = Math.min(config1Product, config2Product);
+  
+  if (minProduct === 0) {
+    return '-';
+  }
+  
+  return (maxProduct / minProduct).toFixed(7);
+}
+
+/**
  * 更新 header 中的乘積顯示
  */
 function updateProductDisplay() {
@@ -388,6 +466,7 @@ function updateProductDisplay() {
     config1Wrapper.appendChild(config1ProductDiv);
   }
   config1ProductDiv.textContent = config1Product;
+  config1ProductDiv.style.fontSize = getAdaptiveFontSize(config1Product) + 'px';
   
   // 更新配置2乘積
   const config2Wrapper = configWrappers[1];
@@ -399,8 +478,12 @@ function updateProductDisplay() {
     config2Wrapper.appendChild(config2ProductDiv);
   }
   config2ProductDiv.textContent = config2Product;
+  config2ProductDiv.style.fontSize = getAdaptiveFontSize(config2Product) + 'px';
   
-  // 更新比值 (配置1 ÷ 配置2)
+  // 更新箭頭顯示
+  updateArrowDisplay(config1Product, config2Product);
+  
+  // 更新比值 (較大值 ÷ 較小值)
   const ratioWrapper = configWrappers[2];
   let ratioDiv = ratioWrapper.querySelector('.config-ratio-value');
   if (!ratioDiv) {
@@ -409,14 +492,27 @@ function updateProductDisplay() {
     ratioDiv.style.cssText = 'color: rgba(255, 255, 255, 0.9); text-align: center; margin-bottom: 4px; font-weight: 600;';
     ratioWrapper.appendChild(ratioDiv);
   }
-  const ratioValue = config2Product === 0 ? '-' : (config1Product / config2Product).toFixed(7);
-  ratioDiv.textContent = ratioValue;
+  
+  const ratioValue = calculateRatioValue(config1Product, config2Product);
+  
+  if (ratioValue === '-') {
+    ratioDiv.textContent = '-';
+  } else {
+    // 分割小數點後2位(含)之前和之後的部分
+    const decimalIndex = ratioValue.indexOf('.');
+    const mainPart = ratioValue.substring(0, decimalIndex + 3); // 小數點前 + 小數點 + 2位
+    const remainingPart = ratioValue.substring(decimalIndex + 3);
+    // 主要部分用亮綠色，剩餘部分保持原色
+    ratioDiv.innerHTML = `<span style="color: #00ff00;">${mainPart}</span>${remainingPart}`;
+  }
+  ratioDiv.style.fontSize = getAdaptiveFontSize(ratioValue) + 'px';
 }
 
 // 導出函數供外部使用
 window.updateProductDisplay = updateProductDisplay;
 window.calculateConfig1Product = calculateConfig1Product;
 window.calculateConfig2Product = calculateConfig2Product;
+window.calculateRatioValue = calculateRatioValue;
 window.calculateAllStatProducts = calculateAllStatProducts;
 window.getStatItemValue = getStatItemValue;
 window.parseInputValue = parseInputValue;
@@ -437,6 +533,109 @@ window.calculateOther = calculateOther;
 // 導出常數
 window.STAT_ITEMS = STAT_ITEMS;
 window.STAT_NAMES = STAT_NAMES;
+
+// ============ 新架構：統一事件處理層 ============
+
+/**
+ * 統一的事件處理入口函數
+ * 流程：用戶輸入 → 更新狀態 → 觸發三向綁定 → 計算派生值 → 更新視圖 → 分發事件
+ * 
+ * 這是測項友好的架構：所有連動邏輯都通過這個函數，便於追踪和驗證
+ * 
+ * @param {number} itemIndex - 統計項目索引
+ * @param {string} configType - 改變類型 ('config1' 或 'config2')
+ * @param {number} newValue - 新值
+ */
+function handleStatInputChange(itemIndex, configType, newValue) {
+  // 確保 StatStore 和 ComputeEngine 已加載
+  if (!window.StatStore || !window.ComputeEngine) {
+    console.warn('StatStore or ComputeEngine not available');
+    return;
+  }
+  
+  // Step 1: 更新狀態存儲
+  const store = window.StatStore;
+  const changed = configType === 'config1'
+    ? store.setConfig1Value(itemIndex, newValue)
+    : store.setConfig2Value(itemIndex, newValue);
+  
+  if (!changed) return; // 值未改變，無需更新
+  
+  // Step 2: 觸發三向綁定（如果需要）
+  if (window.shouldSyncThreeWay && window.shouldSyncThreeWay(itemIndex)) {
+    store.syncThreeWayBinding(itemIndex, configType, newValue);
+  }
+  
+  // Step 3: 計算所有派生值
+  const computeEngine = window.ComputeEngine;
+  const computed = computeEngine.getComputedState(store, STAT_ITEMS, calculateAdaptability);
+  
+  // Step 4: 更新視圖
+  updateProductDisplay();
+  
+  // Step 5: 分發事件（供測試監聽和擴展）
+  const event = new CustomEvent('statInputChanged', {
+    detail: {
+      itemIndex,
+      configType,
+      newValue,
+      previousValue: configType === 'config1' 
+        ? store.getConfig1Value(itemIndex) 
+        : store.getConfig2Value(itemIndex),
+      computed,
+      timestamp: Date.now()
+    },
+    bubbles: true,
+    cancelable: false
+  });
+  window.dispatchEvent(event);
+}
+
+/**
+ * 獲取當前計算狀態的快照
+ * 用於測試驗證：可隨時審計所有狀態和計算結果
+ * 
+ * @returns {Object} 包含狀態、計算結果和時間戳的快照
+ */
+function getStatSnapshot() {
+  if (!window.StatStore || !window.ComputeEngine) {
+    return null;
+  }
+  
+  const store = window.StatStore;
+  const computeEngine = window.ComputeEngine;
+  const computed = computeEngine.getComputedState(store, STAT_ITEMS, calculateAdaptability);
+  
+  return {
+    state: store.getSnapshot(),
+    computed,
+    timestamp: Date.now()
+  };
+}
+
+/**
+ * 初始化新架構（從 DOM 加載狀態）
+ * 在頁面加載時調用
+ */
+function initializeNewArchitecture() {
+  if (!window.StatStore) {
+    console.warn('StatStore not available');
+    return;
+  }
+  
+  const store = window.StatStore;
+  store.initFromDOM(parseInputValue, calculateAdaptability, STAT_ITEMS);
+  
+  // 訂閱狀態變化（可用於調試和高級功能）
+  store.subscribe((eventType, data) => {
+    // console.log(`[StatStore Event] ${eventType}:`, data);
+  });
+}
+
+// 導出新架構的函數供外部使用
+window.handleStatInputChange = handleStatInputChange;
+window.getStatSnapshot = getStatSnapshot;
+window.initializeNewArchitecture = initializeNewArchitecture;
 
 // 初始化
 function init() {

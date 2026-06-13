@@ -45,13 +45,13 @@
       </section>
     </main>
     <script>
-      // 浮点数精度处理函数 - 避免 5.3 显示成 5.3000000002 或 5.29999999
+      // 浮點數精度處理函數 - 避免 5.3 顯示成 5.3000000002 或 5.29999999
       const roundNumber = (num, decimals = 5) => {
         if (!Number.isFinite(num)) return num;
-        // 用字符串匹配来保留有意义的小数位数
+        // 用字符串求提保有意義的小數位數
         const multiplier = Math.pow(10, decimals);
         const rounded = Math.round(num * multiplier) / multiplier;
-        // 如果结果是整数，返回整数；否则返回精确的浮点数
+        // 如果結果是整數，返回整數；否則返回精確的浮點數
         return parseFloat(rounded.toFixed(decimals).replace(/\.?0+$/, ''));
       };
 
@@ -173,16 +173,13 @@
               <div class="panel-label">配置名稱</div>
               <div class="config-wrapper">
                 <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">配置 1</div>
-                <div style="width: 20px;"></div>
               </div>
               <div class="config-wrapper">
                 <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">配置 2</div>
-                <div style="width: 20px;"></div>
               </div>
               <div class="config-wrapper">
                 <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">1</div>
                 <div class="config-ratio-value">-</div>
-                <div style="width: 20px;"></div>
               </div>
             </div>
           `;
@@ -1118,16 +1115,16 @@
             <div class="panel-label"></div>
             <div class="config-wrapper">
               <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">配置 1</div>
-              <div style="width: 20px;"></div>
             </div>
             <div class="config-wrapper">
               <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">配置 2</div>
-              <div style="width: 20px;"></div>
             </div>
-            <div class="config-wrapper">
-              <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">變動量</div>
-              <div class="config-ratio-value">-</div>
-              <div style="width: 20px;"></div>
+            <div class="config-wrapper" style="flex-direction: column;">
+              <div style="display: flex; align-items: center; justify-content: center; gap: 10px; line-height: 1; height: 24px;">
+                <div class="arrow-left" style="font-size: 20px; color: #ffffff; cursor: default; width: 20px; text-align: center; line-height: 1;">▲</div>
+                <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 50px; line-height: 1;">變動量</div>
+              </div>
+              <div class="config-ratio-value" style="color: rgba(255, 255, 255, 0.9); text-align: center; margin-bottom: 4px; font-weight: 600;">-</div>
             </div>
           </div>
         `;
@@ -1153,6 +1150,11 @@
       // 無論有沒有 panels，都計算高度（設置默認高度）
       setTimeout(updatePanelHeight, 50);
     </script>
+    <!-- 新架構：状态管理层 -->
+    <script src="src/store.js"></script>
+    <!-- 新架構：計算引擎層 -->
+    <script src="src/compute.js"></script>
+    <!-- 原有計算邏輯 -->
     <script src="calc.js"></script>
   </body>
 </html>
