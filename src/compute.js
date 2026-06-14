@@ -3,6 +3,9 @@
  * 無副作用：僅進行計算，不修改輸入數據或DOM
  */
 
+// 導入浮點數精度處理函數
+import { roundNumber as utilsRoundNumber } from './utils.js';
+
 const ComputeEngine = {
   /**
    * 計算配置1的乘積
@@ -42,7 +45,7 @@ const ComputeEngine = {
       product *= effectiveValue;
     });
     
-    return this.roundNumber(product);
+    return utilsRoundNumber(product, 5);
   },
   
   /**
@@ -83,7 +86,7 @@ const ComputeEngine = {
       product *= effectiveValue;
     });
     
-    return this.roundNumber(product);
+    return utilsRoundNumber(product, 5);
   },
   
   /**
@@ -168,14 +171,13 @@ const ComputeEngine = {
   },
   
   /**
-   * 浮點數精度處理函數 - 避免顯示成 5.3000000002 或 5.29999999
-   * @private
+   * 浮點數精度處理函數 - 統一使用 src/utils.js 中的實現
+   * @param {number} num - 要四捨五入的數字
+   * @param {number} decimals - 小數位數（默認 5）
+   * @returns {number} 精確的浮點數
    */
   roundNumber(num, decimals = 5) {
-    if (!Number.isFinite(num)) return num;
-    const multiplier = Math.pow(10, decimals);
-    const rounded = Math.round(num * multiplier) / multiplier;
-    return parseFloat(rounded.toFixed(decimals).replace(/\.?0+$/, ''));
+    return utilsRoundNumber(num, decimals);
   },
   
   /**

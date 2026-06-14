@@ -71,54 +71,6 @@ function parseInputValue(input) {
 }
 
 /**
- * 獲取所有顯示的 input-panel 的配置1值
- */
-function getConfig1Values() {
-  const panels = document.querySelectorAll('.input-panel-item');
-  const values = [];
-  panels.forEach(panel => {
-    const leftInput = panel.querySelector('.left-input');
-    if (leftInput) {
-      const itemIndex = parseInt(panel.dataset.index);
-      // 特殊項目使用對應的計算函數
-      if (itemIndex === STAT_ITEMS.ADAPTABILITY) {
-        // 使用適應力的特殊計算邏輯
-        const result = calculateAdaptability();
-        values.push(result.config1);
-      } else {
-        // 其他項目使用普通解析
-        values.push(parseInputValue(leftInput));
-      }
-    }
-  });
-  return values;
-}
-
-/**
- * 獲取所有顯示的 input-panel 的配置2值
- */
-function getConfig2Values() {
-  const panels = document.querySelectorAll('.input-panel-item');
-  const values = [];
-  panels.forEach(panel => {
-    const resultInput = panel.querySelector('.result-input');
-    if (resultInput) {
-      const itemIndex = parseInt(panel.dataset.index);
-      // 特殊項目使用對應的計算函數
-      if (itemIndex === STAT_ITEMS.ADAPTABILITY) {
-        // 使用適應力的特殊計算邏輯
-        const result = calculateAdaptability();
-        values.push(result.config2);
-      } else {
-        // 其他項目使用普通解析
-        values.push(parseInputValue(resultInput));
-      }
-    }
-  });
-  return values;
-}
-
-/**
  * 計算指定統計項目的配置1和配置2乘積
  * @param {number} itemIndex - 項目索引
  * @returns {Object} {config1: 配置1乘積, config2: 配置2乘積}
@@ -148,9 +100,13 @@ function calculatePhysicalMagicAttack() {
  * 計算適應力值 - 纯计算函数（用于按钮显示）
  * @param {Object} values - 包含 panel, gathering_place, adapt_potion, super_adapt 的对象
  * @returns {number} 计算结果
+ * 面板值限制为最多 60
  */
 function calculateAdaptabilityValue(values) {
-  const panelValue = parseFloat(values.panel) || 0;
+  let panelValue = parseFloat(values.panel) || 0;
+  // 限制 panel 值不超過 60
+  panelValue = Math.min(panelValue, MAX_ADAPTABILITY_PANEL);
+  
   const gatheringPlace = values.gathering_place ? 2 : 0;  // 集合地 +2
   const adaptPotion = values.adapt_potion ? 3 : 0;        // 適應靈藥 +3
   const superAdapt = parseFloat(values.super_adapt) || 0;
@@ -163,6 +119,7 @@ function calculateAdaptabilityValue(values) {
 /**
  * 計算適應力 - 特殊計算方法
  * 公式: min(panel + gathering_place_buff + adapt_potion_buff, 60) + super_adapt
+ * 面板值限制為最多 60
  */
 function calculateAdaptability() {
   const itemIndex = STAT_ITEMS.ADAPTABILITY;
@@ -179,7 +136,10 @@ function calculateAdaptability() {
         const value = leftButton.dataset.value || '0|0|0|0|95';
         const parts = value.split('|');
         
-        const panelValue = parseFloat(parts[0]) || 0;
+        let panelValue = parseFloat(parts[0]) || 0;
+        // 限制 panel 值不超過 60
+        panelValue = Math.min(panelValue, MAX_ADAPTABILITY_PANEL);
+        
         const gatheringPlace = parts[1] === '1' ? 2 : 0;  // 集合地 +2
         const adaptPotion = parts[2] === '1' ? 3 : 0;     // 適應靈藥 +3
         const superAdapt = parseFloat(parts[3]) || 0;
@@ -194,7 +154,10 @@ function calculateAdaptability() {
           const resultValue = resultButton.dataset.value || '0|0|0|0|95';
           const resultParts = resultValue.split('|');
           
-          const resultPanelValue = parseFloat(resultParts[0]) || 0;
+          let resultPanelValue = parseFloat(resultParts[0]) || 0;
+          // 限制 panel 值不超過 60
+          resultPanelValue = Math.min(resultPanelValue, MAX_ADAPTABILITY_PANEL);
+          
           const resultGatheringPlace = resultParts[1] === '1' ? 2 : 0;
           const resultAdaptPotion = resultParts[2] === '1' ? 3 : 0;
           const resultSuperAdapt = parseFloat(resultParts[3]) || 0;
@@ -297,8 +260,34 @@ function calculateAllStatProducts() {
 }
 
 /**
+ * 計算適應力的乘數
+ * 新公式: min(100 - 環境debuff + 當前輸入值, 100) / 100
+ * @param {Element} button - 適應力按鈕元素
+ * @returns {number} 乘數值
+ */
+function calculateAdaptabilityMultiplier(button) {
+  if (!button || !button.dataset.value) {
+    return 1; // 如果沒有值，返回1
+  }
+  
+  // 解析按鈕的數據格式: "panel|gathering_place|adapt_potion|super_adapt|preset"
+  const parts = button.dataset.value.split('|');
+  const presetDebuff = parts[4] !== undefined ? parseFloat(parts[4]) : 95; // 環境debuff，默認95
+  
+  // 使用最終計算的適應力值（包含gathering_place和adapt_potion的buff）
+  const result = calculateAdaptability();
+  const currentValue = button.classList.contains('left-input') ? result.config1 : result.config2;
+  
+  // 計算乘數: min(100 - debuff + 當前值, 100) / 100
+  const multiplierBase = Math.min(100 - presetDebuff + currentValue, 100);
+  const multiplier = multiplierBase / 100;
+  
+  return multiplier === 0 ? 1 : multiplier;
+}
+
+/**
  * 計算配置1的乘積，當值為0或空時以1計算
- * 特殊處理: 適應力先除以100再加1
+ * 特殊處理: 適應力使用新乘數計算方式
  */
 function calculateConfig1Product() {
   const panels = document.querySelectorAll('.input-panel-item');
@@ -309,20 +298,19 @@ function calculateConfig1Product() {
     const leftInput = panel.querySelector('.left-input');
     if (leftInput) {
       const itemIndex = parseInt(panel.dataset.index);
-      let value;
+      let effectiveValue;
       
       if (itemIndex === STAT_ITEMS.ADAPTABILITY) {
-        // 適應力: 使用計算結果，並先除以100再加1
-        const result = calculateAdaptability();
-        value = result.config1;
-        const effectiveValue = (value === 0 || value === null || value === undefined) ? 1 : (value / 100 + 1);
-        product *= effectiveValue;
+        // 適應力: 使用新的乘數計算方式
+        const multiplier = calculateAdaptabilityMultiplier(leftInput);
+        effectiveValue = multiplier;
       } else {
         // 其他項目: 當值為0或空時以1計算
-        value = parseInputValue(leftInput);
-        const effectiveValue = (value === 0 || value === null || value === undefined) ? 1 : value;
-        product *= effectiveValue;
+        const value = parseInputValue(leftInput);
+        effectiveValue = (value === 0 || value === null || value === undefined) ? 1 : value;
       }
+      
+      product *= effectiveValue;
     }
   });
   
@@ -331,7 +319,7 @@ function calculateConfig1Product() {
 
 /**
  * 計算配置2的乘積，當值為0或空時以1計算
- * 特殊處理: 適應力先除以100再加1
+ * 特殊處理: 適應力使用新乘數計算方式
  */
 function calculateConfig2Product() {
   const panels = document.querySelectorAll('.input-panel-item');
@@ -342,20 +330,19 @@ function calculateConfig2Product() {
     const resultInput = panel.querySelector('.result-input');
     if (resultInput) {
       const itemIndex = parseInt(panel.dataset.index);
-      let value;
+      let effectiveValue;
       
       if (itemIndex === STAT_ITEMS.ADAPTABILITY) {
-        // 適應力: 使用計算結果，並先除以100再加1
-        const result = calculateAdaptability();
-        value = result.config2;
-        const effectiveValue = (value === 0 || value === null || value === undefined) ? 1 : (value / 100 + 1);
-        product *= effectiveValue;
+        // 適應力: 使用新的乘數計算方式
+        const multiplier = calculateAdaptabilityMultiplier(resultInput);
+        effectiveValue = multiplier;
       } else {
         // 其他項目: 當值為0或空時以1計算
-        value = parseInputValue(resultInput);
-        const effectiveValue = (value === 0 || value === null || value === undefined) ? 1 : value;
-        product *= effectiveValue;
+        const value = parseInputValue(resultInput);
+        effectiveValue = (value === 0 || value === null || value === undefined) ? 1 : value;
       }
+      
+      product *= effectiveValue;
     }
   });
   
@@ -423,22 +410,7 @@ function getAdaptiveFontSize(numberValue) {
   return 12;
 }
 
-/**
- * 計算配置1和配置2的比值
- * @param {number} config1Product - 配置1的乘積
- * @param {number} config2Product - 配置2的乘積
- * @returns {string} 比值字符串（7位小數），若分母為0則返回 '-'
- */
-function calculateRatioValue(config1Product, config2Product) {
-  const maxProduct = Math.max(config1Product, config2Product);
-  const minProduct = Math.min(config1Product, config2Product);
-  
-  if (minProduct === 0) {
-    return '-';
-  }
-  
-  return (maxProduct / minProduct).toFixed(7);
-}
+
 
 /**
  * 更新 header 中的乘積顯示
@@ -480,6 +452,24 @@ function updateProductDisplay() {
   config2ProductDiv.textContent = config2Product;
   config2ProductDiv.style.fontSize = getAdaptiveFontSize(config2Product) + 'px';
   
+  // 根據數值大小決定哪個配置亮起
+  const config1Panels = document.querySelectorAll('.config-wrapper:nth-child(2)');
+  const config2Panels = document.querySelectorAll('.config-wrapper:nth-child(3)');
+  
+  if (config1Product > config2Product) {
+    // 配置1數值較大，亮起配置1
+    config1Panels.forEach(panel => panel.classList.add('highlighted'));
+    config2Panels.forEach(panel => panel.classList.remove('highlighted'));
+  } else if (config2Product > config1Product) {
+    // 配置2數值較大，亮起配置2
+    config1Panels.forEach(panel => panel.classList.remove('highlighted'));
+    config2Panels.forEach(panel => panel.classList.add('highlighted'));
+  } else {
+    // 數值相等，兩個都不亮
+    config1Panels.forEach(panel => panel.classList.remove('highlighted'));
+    config2Panels.forEach(panel => panel.classList.remove('highlighted'));
+  }
+  
   // 更新箭頭顯示
   updateArrowDisplay(config1Product, config2Product);
   
@@ -493,7 +483,13 @@ function updateProductDisplay() {
     ratioWrapper.appendChild(ratioDiv);
   }
   
-  const ratioValue = calculateRatioValue(config1Product, config2Product);
+  const ratioValue = window.ComputeEngine && window.ComputeEngine.calculateRatioValue
+    ? window.ComputeEngine.calculateRatioValue(config1Product, config2Product)
+    : (function() {
+        const maxProduct = Math.max(config1Product, config2Product);
+        const minProduct = Math.min(config1Product, config2Product);
+        return minProduct === 0 ? '-' : (maxProduct / minProduct).toFixed(7);
+      })();
   
   if (ratioValue === '-') {
     ratioDiv.textContent = '-';
@@ -512,10 +508,10 @@ function updateProductDisplay() {
 window.updateProductDisplay = updateProductDisplay;
 window.calculateConfig1Product = calculateConfig1Product;
 window.calculateConfig2Product = calculateConfig2Product;
-window.calculateRatioValue = calculateRatioValue;
 window.calculateAllStatProducts = calculateAllStatProducts;
 window.getStatItemValue = getStatItemValue;
 window.parseInputValue = parseInputValue;
+window.calculateAdaptabilityMultiplier = calculateAdaptabilityMultiplier;
 
 // 導出各統計項目的計算函數
 window.calculatePhysicalMagicAttack = calculatePhysicalMagicAttack;

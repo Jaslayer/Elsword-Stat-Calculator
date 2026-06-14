@@ -495,16 +495,34 @@ body {
   width: 140px;
 }
 
-/* 配置1 - 紅色背景 */
+/* 配置1 - 藍色背景 */
 .panel-row .config-wrapper:nth-child(2),
 .panel-header-row .config-wrapper:nth-child(2) {
-  background: rgba(255, 100, 100, 0.15);
+  background: rgba(100, 150, 200, 0.15);
+  transition: all 300ms ease;
+}
+
+/* 配置1 - 高亮（紅色） */
+.panel-row .config-wrapper:nth-child(2).highlighted,
+.panel-header-row .config-wrapper:nth-child(2).highlighted {
+  background: rgba(255, 100, 100, 0.28);
+  box-shadow: 0 0 15px rgba(255, 100, 100, 0.35), inset 0 0 15px rgba(255, 100, 100, 0.12);
+  border-color: rgba(255, 150, 150, 0.5);
 }
 
 /* 配置2 - 藍色背景 */
 .panel-row .config-wrapper:nth-child(3),
 .panel-header-row .config-wrapper:nth-child(3) {
   background: rgba(100, 150, 200, 0.15);
+  transition: all 300ms ease;
+}
+
+/* 配置2 - 高亮（紅色） */
+.panel-row .config-wrapper:nth-child(3).highlighted,
+.panel-header-row .config-wrapper:nth-child(3).highlighted {
+  background: rgba(255, 100, 100, 0.28);
+  box-shadow: 0 0 15px rgba(255, 100, 100, 0.35), inset 0 0 15px rgba(255, 100, 100, 0.12);
+  border-color: rgba(255, 150, 150, 0.5);
 }
 
 /* 變動量 - 左對齊 */
@@ -719,25 +737,29 @@ body {
 }
 
 .detailed-dialog {
-  background: rgba(27, 35, 49, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(27, 35, 49, 0.97), rgba(15, 22, 33, 0.95));
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
   padding: 2rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   min-width: 390px;
 }
 
 .dialog-input {
   width: 100%;
-  padding: 0.8rem;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 6px;
-  color: rgba(255, 255, 255, 0.9);
+  height: 40px;
+  padding: 0.6rem 0.85rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  color: rgba(255, 255, 255, 0.95);
   font-family: "Manrope", sans-serif;
   font-size: 1rem;
-  margin-bottom: 0.8rem;
+  font-weight: 500;
+  margin-bottom: 0;
   box-sizing: border-box;
+  transition: all 150ms ease;
 }
 
 /* 隱藏 number input 的預設上下箭頭 */
@@ -753,137 +775,175 @@ body {
 
 .dialog-input:focus {
   outline: none;
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(100, 150, 200, 0.8);
-  box-shadow: 0 0 12px rgba(100, 150, 200, 0.3);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(100, 150, 200, 0.9);
+  box-shadow: 0 0 16px rgba(100, 150, 200, 0.3), inset 0 0 4px rgba(100, 150, 200, 0.1);
 }
 
 /* 雙輸入框對話框樣式 */
 .dual-input-container {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 1rem;
 }
 
 .dialog-input-group {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.5rem;
+  padding: 0.2rem 0;
 }
 
 .dialog-input-label {
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 1rem;
-  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.9rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
+  margin-bottom: 0.3rem;
+  display: block;
 }
 
 /* 下拉清單樣式 */
 .dialog-select {
   width: 100%;
-  padding: 0.8rem;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 6px;
-  color: rgba(255, 255, 255, 0.9);
+  padding: 0.85rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.95);
   font-family: "Manrope", sans-serif;
   font-size: 1rem;
+  font-weight: 500;
   cursor: pointer;
   transition: all 150ms ease;
   box-sizing: border-box;
 }
 
 .dialog-select:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .dialog-select:focus {
   outline: none;
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(100, 150, 200, 0.8);
-  box-shadow: 0 0 12px rgba(100, 150, 200, 0.3);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(100, 150, 200, 0.9);
+  box-shadow: 0 0 16px rgba(100, 150, 200, 0.3), inset 0 0 4px rgba(100, 150, 200, 0.1);
 }
 
 /* 下拉清單選項樣式 */
 .dialog-select option {
-  background: rgba(27, 35, 49, 0.95);
-  color: rgba(255, 255, 255, 0.9);
-  padding: 0.5rem;
+  background: rgba(27, 35, 49, 0.98);
+  color: rgba(255, 255, 255, 0.95);
+  padding: 0.7rem;
+  font-weight: 500;
 }
 
 .dialog-select option:checked {
-  background: rgba(100, 150, 200, 0.5);
-  color: rgba(255, 255, 255, 0.95);
+  background: linear-gradient(rgba(100, 150, 200, 0.6), rgba(100, 150, 200, 0.6));
+  color: rgba(255, 255, 255, 1);
 }
 
 /* 複選框組樣式 */
 .checkbox-group {
-  padding: 0.2rem 0;
+  padding: 0.3rem 0;
+  margin: 0.3rem 0;
 }
 
 .checkbox-label {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.85rem;
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.85);
   font-size: 0.95rem;
+  font-weight: 500;
   user-select: none;
-  padding: 0.2rem, 0.5rem;
-  border-radius: 4px;
+  padding: 0.5rem 0.6rem;
+  border-radius: 6px;
   transition: all 150ms ease;
 }
 
 .checkbox-label:hover {
-  background: rgba(100, 150, 200, 0.1);
+  background: rgba(100, 150, 200, 0.12);
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .dialog-checkbox {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   cursor: pointer;
-  accent-color: rgba(100, 150, 200, 0.8);
+  accent-color: rgba(100, 150, 200, 0.9);
   transition: all 150ms ease;
+  flex-shrink: 0;
 }
 
 .dialog-checkbox:hover {
   accent-color: rgba(100, 150, 200, 1);
 }
 
-/* 對話框 Spinner 按鈕樣式 */
+/* 對話框 Spinner 按鈕樣式 - 優化版 */
 .dialog-spinner-btn {
-  width: 24px;
+  flex: 1 1 auto;
+  width: 32px;
   height: 20px;
+  min-width: 32px;
   padding: 0;
-  background: rgba(100, 150, 200, 0.3);
-  border: 1px solid rgba(100, 150, 200, 0.5);
-  border-radius: 3px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 0.8rem;
+  background: linear-gradient(135deg, rgba(100, 150, 200, 0.35), rgba(100, 150, 200, 0.25));
+  border: 1.5px solid rgba(100, 150, 200, 0.6);
+  border-left: none;
+  border-radius: 0;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.9rem;
   cursor: pointer;
-  transition: all 150ms ease;
+  transition: all 150ms cubic-bezier(0.4, 0.0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 600;
   line-height: 1;
+  box-shadow: 0 2px 8px rgba(100, 150, 200, 0.1);
+  box-sizing: border-box;
+}
+
+.dialog-spinner-btn svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.dialog-spinner-btn:first-child {
+  border-radius: 0 6px 0 0;
+}
+
+.dialog-spinner-btn:last-child {
+  border-radius: 0 0 6px 0;
+  border-top: 0.75px solid rgba(100, 150, 200, 0.6);
 }
 
 .dialog-spinner-btn:hover {
-  background: rgba(100, 150, 200, 0.5);
-  border-color: rgba(100, 150, 200, 0.8);
-  color: rgba(255, 255, 255, 0.9);
+  background: linear-gradient(135deg, rgba(100, 150, 200, 0.55), rgba(100, 150, 200, 0.45));
+  border-color: rgba(100, 150, 200, 0.9);
+  color: rgba(255, 255, 255, 1);
+  box-shadow: 0 4px 12px rgba(100, 150, 200, 0.25);
+  transform: translateY(-1px);
 }
 
 .dialog-spinner-btn:active {
-  background: rgba(100, 150, 200, 0.7);
-  transform: scale(0.95);
+  background: linear-gradient(135deg, rgba(100, 150, 200, 0.7), rgba(100, 150, 200, 0.6));
+  border-color: rgba(100, 150, 200, 1);
+  transform: scale(0.95) translateY(0);
+  box-shadow: 0 2px 4px rgba(100, 150, 200, 0.3) inset;
+}
+
+.dialog-spinner-btn:focus {
+  outline: 2px solid rgba(100, 150, 200, 0.8);
+  outline-offset: 2px;
 }
 
 .dialog-checkbox:focus {
-  outline: 2px solid rgba(100, 150, 200, 0.6);
+  outline: 2px solid rgba(100, 150, 200, 0.7);
   outline-offset: 2px;
 }
 

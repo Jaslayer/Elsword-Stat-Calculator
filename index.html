@@ -154,6 +154,9 @@
         });
       });
 
+      // =============== 常量定義 ===============
+      const MAX_ADAPTABILITY_PANEL = 60; // 適應力面板最大值
+
       // 更新輸入面板的函數
       function updateInputPanel() {
         const calcPanel = document.getElementById('calcPanel');
@@ -377,7 +380,7 @@
               <div class="panel-label">${statItem.textContent}</div>
               <div class="config-wrapper">
                 <label for="stat-${index}-left" class="sr-only">配置 1</label>
-                <button class="button-input left-input" id="stat-${index}-left" data-index="${index}" data-type="left" data-value="0" data-min="0"></button>
+                <button class="button-input left-input" id="stat-${index}-left" data-index="${index}" data-type="left" data-value="${index === 1 ? '0|0|0|0|95' : '0'}" data-min="0"></button>
                 <div class="input-spinner">
                   <button class="spinner-btn up" data-type="left" data-index="${index}">∧</button>
                   <button class="spinner-btn down" data-type="left" data-index="${index}">∨</button>
@@ -385,7 +388,7 @@
               </div>
               <div class="config-wrapper">
                 <label for="stat-${index}-result" class="sr-only">配置 2</label>
-                <button class="button-input result-input" id="stat-${index}-result" data-index="${index}" data-type="result" data-value="0" data-min="0"></button>
+                <button class="button-input result-input" id="stat-${index}-result" data-index="${index}" data-type="result" data-value="${index === 1 ? '0|0|0|0|95' : '0'}" data-min="0"></button>
                 <div class="input-spinner">
                   <button class="spinner-btn up" data-type="result" data-index="${index}">∧</button>
                   <button class="spinner-btn down" data-type="result" data-index="${index}">∨</button>
@@ -474,7 +477,9 @@
               if (panelItem && parseInt(panelItem.dataset.index) === 1) {
                 // 適應力特殊處理：返回計算後的完整值
                 const parts = element.dataset.value.split('|');
-                const panelValue = parseFloat(parts[0]) || 0;
+                let panelValue = parseFloat(parts[0]) || 0;
+                // 限制 panel 值不超過 60
+                panelValue = Math.min(panelValue, MAX_ADAPTABILITY_PANEL);
                 const gatheringPlace = parts[1] === '1' ? 2 : 0;
                 const adaptPotion = parts[2] === '1' ? 3 : 0;
                 const superAdapt = parseFloat(parts[3]) || 0;
@@ -503,18 +508,34 @@
             // 對於適應力按鈕（含有 | 符號），保留 super 值和 preset 值，更新 panel 值
             if (element.dataset.value && element.dataset.value.includes('|')) {
               const parts = element.dataset.value.split('|');
-              if (parts.length >= 3) {
-                element.dataset.value = `${precisedValue}|${parts[1]}|${parts[2]}`;
-              } else if (parts.length === 2) {
-                element.dataset.value = `${precisedValue}|${parts[1]}`;
+              // 對於適應力項目，限制 panel 值不超過 60
+              const panelItem = element.closest('.input-panel-item');
+              if (panelItem && parseInt(panelItem.dataset.index) === 1) {
+                // 限制 panel 值為最多 60
+                let limitedPanelValue = Math.min(precisedValue, MAX_ADAPTABILITY_PANEL);
+                if (parts.length >= 3) {
+                  element.dataset.value = `${limitedPanelValue}|${parts[1]}|${parts[2]}`;
+                } else if (parts.length === 2) {
+                  element.dataset.value = `${limitedPanelValue}|${parts[1]}`;
+                } else {
+                  element.dataset.value = limitedPanelValue;
+                }
               } else {
-                element.dataset.value = precisedValue;
+                // 其他項目正常處理
+                if (parts.length >= 3) {
+                  element.dataset.value = `${precisedValue}|${parts[1]}|${parts[2]}`;
+                } else if (parts.length === 2) {
+                  element.dataset.value = `${precisedValue}|${parts[1]}`;
+                } else {
+                  element.dataset.value = precisedValue;
+                }
               }
             } else {
               element.dataset.value = precisedValue;
             }
-            // 如果數值為0，保持空白；否則顯示數值
-            element.textContent = precisedValue === 0 ? '' : precisedValue;
+            // 重新計算顯示值，調用 getInputValue 以確保正確的計算
+            const displayValue = getInputValue(element);
+            element.textContent = displayValue === 0 ? '' : displayValue;
           } else {
             element.value = precisedValue;
           }
@@ -543,29 +564,110 @@
           if (changedType === 'left') {
             // 配置1改變 → 變動量 = 配置2 - 配置1
             // 限制配置1最小值為 0
-            const constrainedLeftValue = Math.max(0, leftValue);
+            let constrainedLeftValue = Math.max(0, leftValue);
+            
+            // 對於適應力項目，需要限制 panel 值為 60
+            if (index === 1) { // 適應力
+              // 解析左按鈕的值
+              if (leftInput.dataset.value && leftInput.dataset.value.includes('|')) {
+                const parts = leftInput.dataset.value.split('|');
+                let panelValue = parseFloat(parts[0]) || 0;
+                // 限制 panel 值不超過 60
+                panelValue = Math.min(panelValue, MAX_ADAPTABILITY_PANEL);
+                parts[0] = panelValue;
+                leftInput.dataset.value = parts.join('|');
+              }
+            }
+            
+            constrainedLeftValue = getInputValue(leftInput); // 重新讀取受限制後的值
             const newMiddle = roundNumber(resultValue - constrainedLeftValue);
-            if (constrainedLeftValue !== leftValue) {
+            middleInput.value = newMiddle;
+            
+            // 如果左值有變化，更新按鈕顯示
+            if (constrainedLeftValue !== leftValue && leftInput.classList.contains('button-input')) {
               setInputValue(leftInput, constrainedLeftValue);
             }
-            middleInput.value = newMiddle;
+            
           } else if (changedType === 'result') {
             // 配置2改變 → 變動量 = 配置2 - 配置1
             // 限制配置2最小值為 0
-            const constrainedResultValue = Math.max(0, resultValue);
+            let constrainedResultValue = Math.max(0, resultValue);
+            
+            // 對於適應力項目，需要限制 panel 值為 60
+            if (index === 1) { // 適應力
+              // 解析右按鈕的值
+              if (resultInput.dataset.value && resultInput.dataset.value.includes('|')) {
+                const parts = resultInput.dataset.value.split('|');
+                let panelValue = parseFloat(parts[0]) || 0;
+                // 限制 panel 值不超過 60
+                panelValue = Math.min(panelValue, MAX_ADAPTABILITY_PANEL);
+                parts[0] = panelValue;
+                resultInput.dataset.value = parts.join('|');
+              }
+            }
+            
+            constrainedResultValue = getInputValue(resultInput); // 重新讀取受限制後的值
             const newMiddle = roundNumber(constrainedResultValue - leftValue);
-            if (constrainedResultValue !== resultValue) {
+            middleInput.value = newMiddle;
+            
+            // 如果右值有變化，更新按鈕顯示
+            if (constrainedResultValue !== resultValue && resultInput.classList.contains('button-input')) {
               setInputValue(resultInput, constrainedResultValue);
             }
-            middleInput.value = newMiddle;
+            
           } else if (changedType === 'middle') {
             // 變動量改變 → 配置2 = 配置1 + 變動量
             const newResult = roundNumber(leftValue + middleValue);
             // 限制配置2最小值為 0
             const constrainedResult = Math.max(0, newResult);
-            setInputValue(resultInput, constrainedResult);
+            
+            // 對於適應力項目，需要反推panel值并限制為 60
+            if (index === 1) { // 適應力
+              if (resultInput.dataset.value && resultInput.dataset.value.includes('|')) {
+                const parts = resultInput.dataset.value.split('|');
+                const gatheringPlace = parts[1] === '1' ? 2 : 0;
+                const adaptPotion = parts[2] === '1' ? 3 : 0;
+                const superAdapt = parseFloat(parts[3]) || 0;
+                
+                // 反推panel值：constrainedResult = min(panel + buff, 60) + superAdapt
+                // 所以: buffedPanel = constrainedResult - superAdapt
+                const buffedPanel = constrainedResult - superAdapt;
+                let panelValue;
+                
+                if (buffedPanel <= 60) {
+                  // 正常情況：反推出panel = buffedPanel - gatheringPlace - adaptPotion
+                  panelValue = Math.max(0, buffedPanel - gatheringPlace - adaptPotion);
+                } else {
+                  // buffedPanel > 60，說明panel超過限制，應該設為60
+                  panelValue = MAX_ADAPTABILITY_PANEL;
+                }
+                
+                // 限制panel不超過60
+                panelValue = Math.min(panelValue, MAX_ADAPTABILITY_PANEL);
+                
+                // 更新panel值，保持其他字段不變（gathering_place, adapt_potion, super_adapt, preset）
+                parts[0] = panelValue;
+                resultInput.dataset.value = parts.join('|');
+                
+                // 重新計算顯示值（使用 getInputValue 確保計算正確）
+                const updatedValue = getInputValue(resultInput);
+                
+                // 更新按鈕顯示（只顯示計算出的 panel 值部分，不是完整結果）
+                resultInput.textContent = updatedValue === 0 ? '' : updatedValue;
+              } else {
+                setInputValue(resultInput, constrainedResult);
+              }
+            } else {
+              // 非適應力項目：正常設置值
+              setInputValue(resultInput, constrainedResult);
+            }
           }
+          
           updateMiddleIndicator();
+          
+          // 立即触发按钮的 change 事件，使计算系统更新显示
+          resultInput.dispatchEvent(new Event('change', { bubbles: true }));
+          
           // 更新乘積顯示
           if (window.updateProductDisplay) {
             window.updateProductDisplay();
@@ -738,9 +840,10 @@
             {
               name: 'panel',
               type: 'number',
-              label: '面板',
+              label: '面板(最大60)',
               className: 'adaptability-panel-input',
-              minValue: 0
+              minValue: 0,
+              maxValue: MAX_ADAPTABILITY_PANEL // 最大60
             },
             {
               name: 'gathering_place',
@@ -828,11 +931,19 @@
             fieldsHTML += `
               <div class="dialog-input-group">
                 <label class="dialog-input-label" for="${inputId}">${field.label}</label>
-                <div style="display: flex; gap: 0.5rem;">
+                <div style="display: flex; gap: 0; align-items: stretch;">
                   <input type="number" id="${inputId}" class="dialog-input ${field.className}" style="flex: 1;" />
-                  <div style="display: flex; flex-direction: column; gap: 2px;">
-                    <button class="dialog-spinner-btn dialog-spinner-up" type="button" aria-label="增加">∧</button>
-                    <button class="dialog-spinner-btn dialog-spinner-down" type="button" aria-label="減少">∨</button>
+                  <div style="display: flex; flex-direction: column; gap: 0; flex-shrink: 0; height: 100%;">
+                    <button class="dialog-spinner-btn dialog-spinner-up" type="button" aria-label="增加" title="增加">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                        <path d="M7 14l5-5 5 5z"/>
+                      </svg>
+                    </button>
+                    <button class="dialog-spinner-btn dialog-spinner-down" type="button" aria-label="減少" title="減少">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                        <path d="M7 10l5 5 5-5z"/>
+                      </svg>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -901,7 +1012,8 @@
             parsedValues.value = Math.max(0, parsedValues.value + spinnerIncrement);
           } else if (config.type === 'multi-field') {
             // 多字段項目（如適應力）- 配置1和配置2都增加 panel 值，保持行為一致
-            parsedValues.panel = Math.max(0, parsedValues.panel + spinnerIncrement);
+            // 但限制 panel 值不超過 60
+            parsedValues.panel = Math.max(0, Math.min(parsedValues.panel + spinnerIncrement, MAX_ADAPTABILITY_PANEL));
           }
         }
         
@@ -951,6 +1063,11 @@
                 value = field.minValue;
                 fieldElements[field.name].value = value;
               }
+              // 應用最大值限制 (適應力面板最大 60)
+              if (field.maxValue !== undefined && value > field.maxValue) {
+                value = field.maxValue;
+                fieldElements[field.name].value = value;
+              }
             }
             
             values[field.name] = value;
@@ -968,6 +1085,41 @@
           // 調用主幹函數進行完整更新流程
           const changeType = type === 'left' ? 'left' : 'result';
           triggerFullStatUpdate(button, changeType);
+          
+          // ★ 適應力 preset 同步邏輯 ★
+          // 配置1與2的環境Debuff設置要同步
+          if (index === 1 && values.preset !== undefined) {
+            // 找到適應力的另一個按鈕（left或result）
+            const panels = document.querySelectorAll('.input-panel-item');
+            for (let panel of panels) {
+              if (parseInt(panel.dataset.index) === 1) {
+                const otherButtonClass = type === 'left' ? '.result-input' : '.left-input';
+                const otherButton = panel.querySelector(otherButtonClass);
+                
+                if (otherButton && otherButton !== button) {
+                  // 解析另一個按鈕的值
+                  const otherValue = otherButton.dataset.value || '0|0|0|0|95';
+                  const otherParts = otherValue.split('|');
+                  
+                  // 更新 preset 值（第5個部分，索引4）
+                  otherParts[4] = values.preset;
+                  const updatedValue = otherParts.join('|');
+                  
+                  // 保存到另一個按鈕
+                  otherButton.dataset.value = updatedValue;
+                  
+                  // 更新另一個按鈕的顯示（計算顯示值）
+                  const otherParsedValues = config.parse(updatedValue);
+                  const displayValue = config.getDisplayValue ? config.getDisplayValue(otherParsedValues) : otherParsedValues[config.displayField];
+                  otherButton.textContent = (displayValue === 0 || displayValue === '0') ? '' : displayValue;
+                  
+                  // 觸發另一個按鈕的完整更新流程
+                  const otherChangeType = type === 'left' ? 'result' : 'left';
+                  triggerFullStatUpdate(otherButton, otherChangeType);
+                }
+              }
+            }
+          }
         };
         
         // 立即觸發一次 handleInputChange 來序列化初始值並保存到 button
@@ -1042,7 +1194,11 @@
                     e.preventDefault();
                     const currentValue = parseFloat(element.value) || 0;
                     const minValue = field.minValue !== undefined ? field.minValue : Number.NEGATIVE_INFINITY;
-                    element.value = Math.max(minValue, currentValue + 1);
+                    const maxValue = field.maxValue !== undefined ? field.maxValue : Number.POSITIVE_INFINITY;
+                    let newValue = currentValue + 1;
+                    // 限制最小值和最大值
+                    newValue = Math.max(minValue, Math.min(maxValue, newValue));
+                    element.value = newValue;
                     element.dispatchEvent(new Event('change', { bubbles: true }));
                   });
                 }
@@ -1052,7 +1208,11 @@
                     e.preventDefault();
                     const currentValue = parseFloat(element.value) || 0;
                     const minValue = field.minValue !== undefined ? field.minValue : Number.NEGATIVE_INFINITY;
-                    element.value = Math.max(minValue, currentValue - 1);
+                    const maxValue = field.maxValue !== undefined ? field.maxValue : Number.POSITIVE_INFINITY;
+                    let newValue = currentValue - 1;
+                    // 限制最小值和最大值
+                    newValue = Math.max(minValue, Math.min(maxValue, newValue));
+                    element.value = newValue;
                     element.dispatchEvent(new Event('change', { bubbles: true }));
                   });
                 }
