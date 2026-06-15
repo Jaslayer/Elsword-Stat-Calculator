@@ -3,8 +3,16 @@
  * 無副作用：僅進行計算，不修改輸入數據或DOM
  */
 
-// 導入浮點數精度處理函數
-import { roundNumber as utilsRoundNumber } from './utils.js';
+// 浮點數精度處理函數 - 避免 5.3 顯示成 5.3000000002 或 5.29999999
+const utilsRoundNumber = (num, decimals = 10) => {
+  if (!Number.isFinite(num)) return num;
+  
+  const multiplier = Math.pow(10, decimals);
+  const rounded = Math.round(num * multiplier) / multiplier;
+  
+  // 使用 toFixed 移除末尾的零，然後轉換回數字
+  return parseFloat(rounded.toFixed(decimals));
+};
 
 const ComputeEngine = {
   /**

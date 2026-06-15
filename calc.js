@@ -51,7 +51,7 @@ function getStatItemValue(itemIndex, configType = 'left') {
 }
 
 /**
- * 解析輸入值，支持適應力的 "panel|super" 格式
+ * 解析輸入值，支持適應力和致命一擊傷害的 "panel|..." 格式
  * @param {Element} input - 輸入元素
  * @returns {number} 解析後的數值
  */
@@ -59,8 +59,40 @@ function parseInputValue(input) {
   let value;
   if (input.classList.contains('button-input')) {
     if (input.dataset.value && input.dataset.value.includes('|')) {
-      // 適應力格式: 只取 panel 值
-      value = parseFloat(input.dataset.value.split('|')[0]) || 0;
+      // 檢查是否是致命一擊傷害（itemIndex 2）
+      const panelItem = input.closest('.input-panel-item');
+      if (panelItem && parseInt(panelItem.dataset.index) === 2) {
+        // 新格式: panel|additive1,additive2,...|multiplicative1,multiplicative2,...
+        const parts = input.dataset.value.split('|');
+        const panel = parseFloat(parts[0]) || 0;
+        
+        // 解析加算爆傷 (CSV 格式)
+        let additiveSum = 0;
+        if (parts[1]) {
+          const additiveDamages = parts[1].split(',').map(v => {
+            const num = parseFloat(v);
+            return Number.isNaN(num) ? 0 : num;
+          });
+          additiveSum = additiveDamages.reduce((sum, v) => sum + v, 0);
+        }
+        
+        // 解析乘算爆傷 (CSV 格式)
+        let multiplicativeProduct = 1;
+        if (parts[2]) {
+          const multiplicativeDamages = parts[2].split(',').map(v => {
+            const num = parseFloat(v);
+            return Number.isNaN(num) ? 1 : num;
+          }).filter(v => v !== 0);
+          // 使用新公式的乘算計算方式: ∏[(m + 100) / 100]
+          multiplicativeProduct = multiplicativeDamages.reduce((prod, v) => prod * ((v + 100) / 100), 1);
+        }
+        
+        // 新公式: 面板 + 150 * (乘算總乘積 - 1) + 加算總和
+        value = panel + 150 * (multiplicativeProduct - 1) + additiveSum;
+      } else {
+        // 其他格式只取第一個值
+        value = parseFloat(input.dataset.value.split('|')[0]) || 0;
+      }
     } else {
       value = parseFloat(input.dataset.value) || 0;
     }
@@ -186,10 +218,97 @@ function calculateAdaptability() {
 }
 
 /**
- * 計算致命一擊傷害
+ * 計算致命一擊傷害 - 特殊計算方法
+ * 公式: 面板 + 150 × (∏[(乘算+100)/100] - 1) + 加算總和
+ * 面板值限制為最多 60（與適應力相同）
  */
 function calculateCriticalDamage() {
-  return calculateStatItemProduct(STAT_ITEMS.CRITICAL_DAMAGE);
+  const itemIndex = STAT_ITEMS.CRITICAL_DAMAGE;
+  const panels = document.querySelectorAll('.input-panel-item');
+  
+  // 找到致命一擊傷害的面板
+  for (let panel of panels) {
+    if (parseInt(panel.dataset.index) === itemIndex) {
+      const leftButton = panel.querySelector('.left-input');
+      const resultButton = panel.querySelector('.result-input');
+      
+      if (leftButton) {
+        // 解析 "panel|additive1,additive2,...|multiplicative1,multiplicative2,..." 格式
+        const value = leftButton.dataset.value || '0||';
+        const parts = value.split('|');
+        
+        const panelValue = parseFloat(parts[0]) || 0;
+        
+        // 解析加算爆傷 (CSV 格式)
+        let additiveSum = 0;
+        if (parts[1]) {
+          const additiveDamages = parts[1].split(',').map(v => {
+            const num = parseFloat(v);
+            return Number.isNaN(num) ? 0 : num;
+          });
+          additiveSum = additiveDamages.reduce((sum, v) => sum + v, 0);
+        }
+        
+        // 解析乘算爆傷 (CSV 格式)
+        let multiplicativeProduct = 1;
+        if (parts[2]) {
+          const multiplicativeDamages = parts[2].split(',').map(v => {
+            const num = parseFloat(v);
+            return Number.isNaN(num) ? 0 : num;
+          }).filter(v => v !== 0);
+          // 使用新公式的乘算計算方式: ∏[(m + 100) / 100]
+          multiplicativeProduct = multiplicativeDamages.reduce((prod, v) => prod * ((v + 100) / 100), 1);
+        }
+        
+        // 新公式: 面板 + 150 * (乘算總乘積 - 1) + 加算總和
+        const config1 = panelValue + 150 * (multiplicativeProduct - 1) + additiveSum;
+        
+        // 右側配置值計算方式相同
+        let config2 = 0;
+        if (resultButton) {
+          const resultValue = resultButton.dataset.value || '0||';
+          const resultParts = resultValue.split('|');
+          
+          const resultPanelValue = parseFloat(resultParts[0]) || 0;
+          
+          let resultAdditiveSum = 0;
+          if (resultParts[1]) {
+            const resultAdditiveDamages = resultParts[1].split(',').map(v => {
+              const num = parseFloat(v);
+              return Number.isNaN(num) ? 0 : num;
+            });
+            resultAdditiveSum = resultAdditiveDamages.reduce((sum, v) => sum + v, 0);
+          }
+          
+          let resultMultiplicativeProduct = 1;
+          if (resultParts[2]) {
+            const resultMultiplicativeDamages = resultParts[2].split(',').map(v => {
+              const num = parseFloat(v);
+              return Number.isNaN(num) ? 0 : num;
+            }).filter(v => v !== 0);
+            resultMultiplicativeProduct = resultMultiplicativeDamages.reduce((prod, v) => prod * ((v + 100) / 100), 1);
+          }
+          
+          config2 = resultPanelValue + 150 * (resultMultiplicativeProduct - 1) + resultAdditiveSum;
+        }
+        
+        return {
+          config1: config1,
+          config2: config2,
+          itemIndex: itemIndex,
+          itemName: STAT_NAMES[itemIndex]
+        };
+      }
+    }
+  }
+  
+  // 未找到該項，返回 0
+  return {
+    config1: 0,
+    config2: 0,
+    itemIndex: itemIndex,
+    itemName: STAT_NAMES[itemIndex]
+  };
 }
 
 /**
@@ -304,6 +423,10 @@ function calculateConfig1Product() {
         // 適應力: 使用新的乘數計算方式
         const multiplier = calculateAdaptabilityMultiplier(leftInput);
         effectiveValue = multiplier;
+      } else if (itemIndex === STAT_ITEMS.CRITICAL_DAMAGE) {
+        // 致命一擊傷害: 將結果除以100後再乘入
+        const value = parseInputValue(leftInput);
+        effectiveValue = (value === 0 || value === null || value === undefined) ? 1 : (value / 100);
       } else {
         // 其他項目: 當值為0或空時以1計算
         const value = parseInputValue(leftInput);
@@ -336,6 +459,10 @@ function calculateConfig2Product() {
         // 適應力: 使用新的乘數計算方式
         const multiplier = calculateAdaptabilityMultiplier(resultInput);
         effectiveValue = multiplier;
+      } else if (itemIndex === STAT_ITEMS.CRITICAL_DAMAGE) {
+        // 致命一擊傷害: 將結果除以100後再乘入
+        const value = parseInputValue(resultInput);
+        effectiveValue = (value === 0 || value === null || value === undefined) ? 1 : (value / 100);
       } else {
         // 其他項目: 當值為0或空時以1計算
         const value = parseInputValue(resultInput);
