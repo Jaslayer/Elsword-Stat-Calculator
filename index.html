@@ -36,6 +36,26 @@
           <button class="stat-item" data-description="">其他</button>
         </nav>
         <div class="calc-panel" id="calcPanel">
+          <div class="input-items-wrapper">
+            <div class="input-panel-header">
+              <div class="panel-header-row">
+                <div class="panel-label"></div>
+                <div class="config-wrapper">
+                  <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">配置 1</div>
+                </div>
+                <div class="config-wrapper">
+                  <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">配置 2</div>
+                </div>
+                <div class="config-wrapper" style="flex-direction: column;">
+                  <div style="display: flex; align-items: center; justify-content: center; gap: 10px; line-height: 1; height: 24px;">
+                    <div class="arrow-left" style="font-size: 20px; color: #ffffff; cursor: default; width: 20px; text-align: center; line-height: 1;">▲</div>
+                    <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 50px; line-height: 1;">變動量</div>
+                  </div>
+                  <div class="config-ratio-value" style="color: rgba(255, 255, 255, 0.9); text-align: center; margin-bottom: 4px; font-weight: 600;">-</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </aside>
       <section class="content" aria-label="Content area">
@@ -59,9 +79,8 @@
        * 主幹函數：統一管理整個統計項目更新流程
        * 流程: User修改input → 調整3方運算 → 更新button-input → 計算所有統計結果 → 更新產品顯示
        * @param {Element} changedElement - 改變的輸入元素
-       * @param {string} changeType - 改變類型: 'left' 或 'result'（用於三向綁定）
        */
-      function triggerFullStatUpdate(changedElement, changeType) {
+      function triggerFullStatUpdate(changedElement) {
         if (!changedElement) return;
 
         // 找到所屬的面板
@@ -72,7 +91,7 @@
 
         // 第1步: 如果是 button-input，觸發三向綁定調整
         if (changedElement.classList.contains('button-input') && panelDiv.triggerThreeWayBinding) {
-          panelDiv.triggerThreeWayBinding(changeType);
+          panelDiv.triggerThreeWayBinding(changedElement);
         }
 
         // 第2步: 觸發 button 的 change 事件，讓 button-input 更新
@@ -85,6 +104,11 @@
           requestAnimationFrame(() => {
             window.updateProductDisplay();
           });
+        }
+
+        // 第4步: 更新全局 allStatValues 快取
+        if (window.syncAllStatValues && typeof window.syncAllStatValues === 'function') {
+          window.allStatValues = window.syncAllStatValues();
         }
       }
 
@@ -161,33 +185,6 @@
       function updateInputPanel() {
         const calcPanel = document.getElementById('calcPanel');
         let wrapper = calcPanel.querySelector('.input-items-wrapper');
-        
-        // 如果不存在包裝容器，創建它
-        if (!wrapper) {
-          wrapper = document.createElement('div');
-          wrapper.className = 'input-items-wrapper';
-          calcPanel.insertBefore(wrapper, calcPanel.firstChild);
-          
-          // 創建永久停駐的頭部
-          const headerPanel = document.createElement('div');
-          headerPanel.className = 'input-panel-header';
-          headerPanel.innerHTML = `
-            <div class="panel-header-row">
-              <div class="panel-label">配置名稱</div>
-              <div class="config-wrapper">
-                <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">配置 1</div>
-              </div>
-              <div class="config-wrapper">
-                <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">配置 2</div>
-              </div>
-              <div class="config-wrapper">
-                <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">1</div>
-                <div class="config-ratio-value">-</div>
-              </div>
-            </div>
-          `;
-          wrapper.appendChild(headerPanel);
-        }
         
         // 獲取應該存在的 stat-item 索引
         const shouldExistIndices = [];
@@ -397,7 +394,7 @@
               <div class="config-wrapper">
                 <span class="middle-indicator">▲</span>
                 <label for="stat-${index}-middle" class="sr-only">變動量</label>
-                <input type="number" class="stat-input short-input middle-input" data-index="${index}" id="stat-${index}-middle" name="stat-${index}-middle" />
+                <input type="number" class="stat-input short-input middle-input" data-index="${index}" id="stat-${index}-middle" name="stat-${index}-middle" disabled />
               </div>
             </div>
           `;
@@ -426,7 +423,7 @@
               <div class="config-wrapper">
                 <span class="middle-indicator">▲</span>
                 <label for="stat-${index}-middle" class="sr-only">變動量</label>
-                <input type="number" class="stat-input short-input middle-input" data-index="${index}" id="stat-${index}-middle" name="stat-${index}-middle" />
+                <input type="number" class="stat-input short-input middle-input" data-index="${index}" id="stat-${index}-middle" name="stat-${index}-middle" disabled />
               </div>
             </div>
           `;
@@ -599,111 +596,29 @@
         };
         
         // 觸發三向綁定更新的函數
-        const triggerThreeWayBinding = (changedType) => {
+        const triggerThreeWayBinding = (changedInput) => {
           const leftValue = getInputValue(leftInput);
           const resultValue = getInputValue(resultInput);
-          const middleValue = parseFloat(middleInput.value) || 0;
           
-          if (changedType === 'left') {
-            // 配置1改變 → 變動量 = 配置2 - 配置1
-            // 限制配置1最小值為 0
-            let constrainedLeftValue = Math.max(0, leftValue);
-            
-            // 對於適應力項目，需要限制 panel 值為 60
-            if (index === 1) { // 適應力
-              // 解析左按鈕的值
-              if (leftInput.dataset.value && leftInput.dataset.value.includes('|')) {
-                const parts = leftInput.dataset.value.split('|');
-                let panelValue = parseFloat(parts[0]) || 0;
-                // 限制 panel 值不超過 60
-                panelValue = Math.min(panelValue, MAX_ADAPTABILITY_PANEL);
-                parts[0] = panelValue;
-                leftInput.dataset.value = parts.join('|');
-              }
-            }
-            
-            constrainedLeftValue = getInputValue(leftInput); // 重新讀取受限制後的值
-            const newMiddle = roundNumber(resultValue - constrainedLeftValue);
-            middleInput.value = newMiddle;
-            
-            // 如果左值有變化，更新按鈕顯示
-            if (constrainedLeftValue !== leftValue && leftInput.classList.contains('button-input')) {
-              setInputValue(leftInput, constrainedLeftValue);
-            }
-            
-          } else if (changedType === 'result') {
-            // 配置2改變 → 變動量 = 配置2 - 配置1
-            // 限制配置2最小值為 0
-            let constrainedResultValue = Math.max(0, resultValue);
-            
-            // 對於適應力項目，需要限制 panel 值為 60
-            if (index === 1) { // 適應力
-              // 解析右按鈕的值
-              if (resultInput.dataset.value && resultInput.dataset.value.includes('|')) {
-                const parts = resultInput.dataset.value.split('|');
-                let panelValue = parseFloat(parts[0]) || 0;
-                // 限制 panel 值不超過 60
-                panelValue = Math.min(panelValue, MAX_ADAPTABILITY_PANEL);
-                parts[0] = panelValue;
-                resultInput.dataset.value = parts.join('|');
-              }
-            }
-            
-            constrainedResultValue = getInputValue(resultInput); // 重新讀取受限制後的值
-            const newMiddle = roundNumber(constrainedResultValue - leftValue);
-            middleInput.value = newMiddle;
-            
-            // 如果右值有變化，更新按鈕顯示
-            if (constrainedResultValue !== resultValue && resultInput.classList.contains('button-input')) {
-              setInputValue(resultInput, constrainedResultValue);
-            }
-            
-          } else if (changedType === 'middle') {
-            // 變動量改變 → 配置2 = 配置1 + 變動量
-            const newResult = roundNumber(leftValue + middleValue);
-            // 限制配置2最小值為 0
-            const constrainedResult = Math.max(0, newResult);
-            
-            // 對於適應力項目，需要反推panel值并限制為 60
-            if (index === 1) { // 適應力
-              if (resultInput.dataset.value && resultInput.dataset.value.includes('|')) {
-                const parts = resultInput.dataset.value.split('|');
-                const gatheringPlace = parts[1] === '1' ? 2 : 0;
-                const adaptPotion = parts[2] === '1' ? 3 : 0;
-                const superAdapt = parseFloat(parts[3]) || 0;
-                
-                // 反推panel值：constrainedResult = min(panel + buff, 60) + superAdapt
-                // 所以: buffedPanel = constrainedResult - superAdapt
-                const buffedPanel = constrainedResult - superAdapt;
-                let panelValue;
-                
-                if (buffedPanel <= 60) {
-                  // 正常情況：反推出panel = buffedPanel - gatheringPlace - adaptPotion
-                  panelValue = Math.max(0, buffedPanel - gatheringPlace - adaptPotion);
-                } else {
-                  // buffedPanel > 60，說明panel超過限制，應該設為60
-                  panelValue = MAX_ADAPTABILITY_PANEL;
-                }
-                
-                // 限制panel不超過60
-                panelValue = Math.min(panelValue, MAX_ADAPTABILITY_PANEL);
-                
-                // 更新panel值，保持其他字段不變（gathering_place, adapt_potion, super_adapt, preset）
-                parts[0] = panelValue;
-                resultInput.dataset.value = parts.join('|');
-                
-                // 重新計算顯示值（使用 getInputValue 確保計算正確）
-                const updatedValue = getInputValue(resultInput);
-                
-                // 更新按鈕顯示（只顯示計算出的 panel 值部分，不是完整結果）
-                resultInput.textContent = updatedValue === 0 ? '' : updatedValue;
-              } else {
-                setInputValue(resultInput, constrainedResult);
-              }
-            } else {
-              // 非適應力項目：正常設置值
-              setInputValue(resultInput, constrainedResult);
-            }
+          // 限制配置最小值為 0
+          let constrainedChangedValue = Math.max(0, getInputValue(changedInput));
+          
+          // 對於適應力項目，需要限制 panel 值為 60
+          if (index === 1 && changedInput.dataset.value && changedInput.dataset.value.includes('|')) {
+            const parts = changedInput.dataset.value.split('|');
+            let panelValue = parseFloat(parts[0]) || 0;
+            panelValue = Math.min(panelValue, MAX_ADAPTABILITY_PANEL);
+            parts[0] = panelValue;
+            changedInput.dataset.value = parts.join('|');
+          }
+          
+          constrainedChangedValue = getInputValue(changedInput); // 重新讀取受限制後的值
+          const newMiddle = roundNumber(resultValue - leftValue);
+          middleInput.value = newMiddle;
+          
+          // 如果有變化，更新按鈕顯示
+          if (constrainedChangedValue !== getInputValue(changedInput) && changedInput.classList.contains('button-input')) {
+            setInputValue(changedInput, constrainedChangedValue);
           }
           
           updateMiddleIndicator();
@@ -744,8 +659,7 @@
             
             // 觸發三向綁定更新
             if (panelDiv.triggerThreeWayBinding) {
-              const type = inputElement.classList.contains('left-input') ? 'left' : 'result';
-              panelDiv.triggerThreeWayBinding(type);
+              panelDiv.triggerThreeWayBinding(inputElement);
             }
             return;
           }
@@ -799,8 +713,8 @@
           // 按鈕型輸入框不需要綁定 input 事件
         } else {
           leftInput.addEventListener('input', () => {
-            triggerThreeWayBinding('left');
-            triggerFullStatUpdate(leftInput, 'left');
+            triggerThreeWayBinding(leftInput);
+            triggerFullStatUpdate(leftInput);
           });
         }
         
@@ -809,16 +723,12 @@
           // 按鈕型輸入框不需要綁定 input 事件
         } else {
           resultInput.addEventListener('input', () => {
-            triggerThreeWayBinding('result');
-            triggerFullStatUpdate(resultInput, 'result');
+            triggerThreeWayBinding(resultInput);
+            triggerFullStatUpdate(resultInput);
           });
         }
         
-        // 變動量 改變 → 配置2 = 配置1 + 變動量
-        middleInput.addEventListener('input', () => {
-          triggerThreeWayBinding('middle');
-          triggerFullStatUpdate(leftInput, 'middle');
-        });
+        // 變動量已禁用 - 不需要輸入事件監聽
 
         // 绑定所有 spinner 按钮
         const spinnerBtns = panelDiv.querySelectorAll('.spinner-btn');
@@ -982,13 +892,8 @@
             return `${values.panel}|${additivesStr}|${multiplicativesStr}`;
           },
           getDisplayValue: (values) => {
-            // 計算結果: 面板 + 150 * (乘算總乘積 - 1) + 加算總和
-            const panel = values.panel || 0;
-            const additiveSum = (values.additive_damages || [0]).reduce((sum, v) => sum + (v || 0), 0);
-            // 計算乘算總乘積: ∏[(m + 100) / 100]
-            const multiplicativeProduct = (values.multiplicative_damages || [0]).reduce((prod, v) => prod * ((v + 100) / 100), 1);
-            const result = panel + 150 * (multiplicativeProduct - 1) + additiveSum;
-            return roundNumber(result).toString();
+            // 使用 calc.js 中的獨立計算函數
+            return (window.calculateCriticalDamageValue ? window.calculateCriticalDamageValue(values) : 0).toString();
           }
         },
         
@@ -1158,8 +1063,7 @@
           button.textContent = (displayValue === 0 || displayValue === '0') ? '' : displayValue;
           
           // 調用主幹函數進行完整更新流程
-          const changeType = type === 'left' ? 'left' : 'result';
-          triggerFullStatUpdate(button, changeType);
+          triggerFullStatUpdate(button);
         };
         
         // 綁定 panel 輸入事件
@@ -1500,8 +1404,7 @@
           button.textContent = (displayValue === 0 || displayValue === '0') ? '' : displayValue;
           
           // 調用主幹函數進行完整更新流程
-          const changeType = type === 'left' ? 'left' : 'result';
-          triggerFullStatUpdate(button, changeType);
+          triggerFullStatUpdate(button);
           
           // ★ 適應力 preset 同步邏輯 ★
           // 配置1與2的環境Debuff設置要同步
@@ -1531,8 +1434,7 @@
                   otherButton.textContent = (displayValue === 0 || displayValue === '0') ? '' : displayValue;
                   
                   // 觸發另一個按鈕的完整更新流程
-                  const otherChangeType = type === 'left' ? 'result' : 'left';
-                  triggerFullStatUpdate(otherButton, otherChangeType);
+                  triggerFullStatUpdate(otherButton);
                 }
               }
             }
@@ -1555,8 +1457,12 @@
           button.classList.remove('focus');
           button.blur();
           
-          // 最後一次更新計算結果（確保對話框關閉前已更新）
-          if (window.updateProductDisplay && typeof window.updateProductDisplay === 'function') {
+          // Dialog 關閉時，同步快取並更新顯示
+          if (window.syncAllStatValues && typeof window.syncAllStatValues === 'function') {
+            window.allStatValues = window.syncAllStatValues();
+            // syncAllStatValues 會自動調用 updateProductDisplay，無需再調用
+          } else if (window.updateProductDisplay && typeof window.updateProductDisplay === 'function') {
+            // 備用：如果沒有 syncAllStatValues，直接調用 updateProductDisplay
             setTimeout(() => {
               window.updateProductDisplay();
             }, 10);
@@ -1675,38 +1581,9 @@
         return roundNumber(value);
       }
 
-      // 初始化時創建 wrapper 並設置默認高度
+      // 初始化時設置默認高度
       const calcPanel = document.getElementById('calcPanel');
       let wrapper = calcPanel.querySelector('.input-items-wrapper');
-      
-      if (!wrapper) {
-        wrapper = document.createElement('div');
-        wrapper.className = 'input-items-wrapper';
-        calcPanel.insertBefore(wrapper, calcPanel.firstChild);
-        
-        // 創建永久停駐的頭部
-        const headerPanel = document.createElement('div');
-        headerPanel.className = 'input-panel-header';
-        headerPanel.innerHTML = `
-          <div class="panel-header-row">
-            <div class="panel-label"></div>
-            <div class="config-wrapper">
-              <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">配置 1</div>
-            </div>
-            <div class="config-wrapper">
-              <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">配置 2</div>
-            </div>
-            <div class="config-wrapper" style="flex-direction: column;">
-              <div style="display: flex; align-items: center; justify-content: center; gap: 10px; line-height: 1; height: 24px;">
-                <div class="arrow-left" style="font-size: 20px; color: #ffffff; cursor: default; width: 20px; text-align: center; line-height: 1;">▲</div>
-                <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 50px; line-height: 1;">變動量</div>
-              </div>
-              <div class="config-ratio-value" style="color: rgba(255, 255, 255, 0.9); text-align: center; margin-bottom: 4px; font-weight: 600;">-</div>
-            </div>
-          </div>
-        `;
-        wrapper.appendChild(headerPanel);
-      }
       
       // 如果有被選中的項目，添加 panels
       if (selectedGameStats.some(stat => stat === true)) {

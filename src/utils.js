@@ -16,29 +16,17 @@ export const roundNumber = (num, decimals = 10) => {
 
 /**
  * 三向綁定計算 - 計算配置1、配置2和變動量的關係
+ * 注：變動量輸入框已禁用，無論配置1或配置2改變，變動量都自動計算為 配置2 - 配置1
  * @param {number} left - 配置1的值
  * @param {number} result - 配置2的值
- * @param {string} changedType - 改變的類型 ('left', 'result', 'middle')
- * @returns {object} 返回更新後的三個值
+ * @param {number} middle - 變動量的值（已禁用，保留用於返回值）
+ * @returns {object} 返回更新後的三個值 { left, result, middle }
  */
-export const calculateThreeWayBinding = (left, result, middle, changedType) => {
+export const calculateThreeWayBinding = (left, result, middle) => {
   const leftValue = roundNumber(left || 0);
   const resultValue = roundNumber(result || 0);
-  const middleValue = roundNumber(middle || 0);
-
-  if (changedType === 'left') {
-    // 配置1改變 → 變動量 = 配置2 - 配置1
-    const newMiddle = roundNumber(resultValue - leftValue);
-    return { left: leftValue, result: resultValue, middle: newMiddle };
-  } else if (changedType === 'result') {
-    // 配置2改變 → 變動量 = 配置2 - 配置1
-    const newMiddle = roundNumber(resultValue - leftValue);
-    return { left: leftValue, result: resultValue, middle: newMiddle };
-  } else if (changedType === 'middle') {
-    // 變動量改變 → 配置2 = 配置1 + 變動量
-    const newResult = roundNumber(leftValue + middleValue);
-    return { left: leftValue, result: newResult, middle: middleValue };
-  }
-
-  return { left: leftValue, result: resultValue, middle: middleValue };
+  
+  // 變動量 = 配置2 - 配置1
+  const newMiddle = roundNumber(resultValue - leftValue);
+  return { left: leftValue, result: resultValue, middle: newMiddle };
 };

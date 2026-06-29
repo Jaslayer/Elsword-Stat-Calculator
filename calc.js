@@ -43,7 +43,7 @@ function getStatItemValue(itemIndex, configType = 'left') {
       const selector = configType === 'left' ? '.left-input' : '.result-input';
       const input = panel.querySelector(selector);
       if (input) {
-        return parseInputValue(input);
+        return computeInputValue(input);
       }
     }
   }
@@ -51,44 +51,38 @@ function getStatItemValue(itemIndex, configType = 'left') {
 }
 
 /**
- * 解析輸入值，支持適應力和致命一擊傷害的 "panel|..." 格式
+ * 計算輸入值（解析 + 複雜計算）
+ * 支持適應力和致命一擊傷害的 "panel|..." 格式
+ * 在 syncAllStatValues 時調用，確保所有計算在一個地方進行
  * @param {Element} input - 輸入元素
- * @returns {number} 解析後的數值
+ * @returns {number} 計算後的最終數值
  */
-function parseInputValue(input) {
+function computeInputValue(input) {
   let value;
   if (input.classList.contains('button-input')) {
     if (input.dataset.value && input.dataset.value.includes('|')) {
-      // 檢查是否是致命一擊傷害（itemIndex 2）
       const panelItem = input.closest('.input-panel-item');
-      if (panelItem && parseInt(panelItem.dataset.index) === 2) {
-        // 新格式: panel|additive1,additive2,...|multiplicative1,multiplicative2,...
+      const itemIndex = panelItem ? parseInt(panelItem.dataset.index) : -1;
+      
+      if (itemIndex === 1) {
+        // 適應力 (Adaptability) - 使用純計算函數
         const parts = input.dataset.value.split('|');
-        const panel = parseFloat(parts[0]) || 0;
-        
-        // 解析加算爆傷 (CSV 格式)
-        let additiveSum = 0;
-        if (parts[1]) {
-          const additiveDamages = parts[1].split(',').map(v => {
-            const num = parseFloat(v);
-            return Number.isNaN(num) ? 0 : num;
-          });
-          additiveSum = additiveDamages.reduce((sum, v) => sum + v, 0);
-        }
-        
-        // 解析乘算爆傷 (CSV 格式)
-        let multiplicativeProduct = 1;
-        if (parts[2]) {
-          const multiplicativeDamages = parts[2].split(',').map(v => {
-            const num = parseFloat(v);
-            return Number.isNaN(num) ? 1 : num;
-          }).filter(v => v !== 0);
-          // 使用新公式的乘算計算方式: ∏[(m + 100) / 100]
-          multiplicativeProduct = multiplicativeDamages.reduce((prod, v) => prod * ((v + 100) / 100), 1);
-        }
-        
-        // 新公式: 面板 + 150 * (乘算總乘積 - 1) + 加算總和
-        value = panel + 150 * (multiplicativeProduct - 1) + additiveSum;
+        const values = {
+          panel: parseFloat(parts[0]) || 0,
+          gathering_place: parts[1] === '1',
+          adapt_potion: parts[2] === '1',
+          super_adapt: parseFloat(parts[3]) || 0
+        };
+        value = calculateAdaptabilityValue(values);
+      } else if (itemIndex === 2) {
+        // 致命一擊傷害 (Critical Damage) - 使用純計算函數
+        const parts = input.dataset.value.split('|');
+        const values = {
+          panel: parseFloat(parts[0]) || 0,
+          additive_damages: parts[1] ? parts[1].split(',').map(v => parseFloat(v) || 0) : [],
+          multiplicative_damages: parts[2] ? parts[2].split(',').map(v => parseFloat(v) || 0) : []
+        };
+        value = calculateCriticalDamageValue(values);
       } else {
         // 其他格式只取第一個值
         value = parseFloat(input.dataset.value.split('|')[0]) || 0;
@@ -100,6 +94,14 @@ function parseInputValue(input) {
     value = parseFloat(input.value) || 0;
   }
   return value;
+}
+
+/**
+ * 向後相容：parseInputValue 現在調用 computeInputValue
+ * 保留此別名以避免破壞現有引用
+ */
+function parseInputValue(input) {
+  return computeInputValue(input);
 }
 
 /**
@@ -128,11 +130,14 @@ function calculatePhysicalMagicAttack() {
   return calculateStatItemProduct(STAT_ITEMS.PHYSICAL_MAGIC_ATTACK);
 }
 
+// --------- 純計算函數 (用於複雜項目) ---------
+
 /**
- * 計算適應力值 - 纯计算函数（用于按钮显示）
- * @param {Object} values - 包含 panel, gathering_place, adapt_potion, super_adapt 的对象
- * @returns {number} 计算结果
- * 面板值限制为最多 60
+ * 計算適應力值 - 純計算函數（用於按鈕顯示）
+ * @param {Object} values - 包含 panel, gathering_place, adapt_potion, super_adapt 的對象
+ * @returns {number} 計算結果
+ * 公式: min(panel + gathering_place_buff + adapt_potion_buff, 60) + super_adapt
+ * 面板值限制為最多 60
  */
 function calculateAdaptabilityValue(values) {
   let panelValue = parseFloat(values.panel) || 0;
@@ -149,167 +154,83 @@ function calculateAdaptabilityValue(values) {
 }
 
 /**
- * 計算適應力 - 特殊計算方法
- * 公式: min(panel + gathering_place_buff + adapt_potion_buff, 60) + super_adapt
- * 面板值限制為最多 60
+ * 計算致命一擊傷害值 - 純計算函數（用於按鈕顯示）
+ * @param {Object} values - 包含 panel, additive_damages, multiplicative_damages 的對象
+ * @returns {number} 計算結果
+ * 公式: panel + 150 × (∏[(乘算+100)/100] - 1) + 加算總和
  */
-function calculateAdaptability() {
-  const itemIndex = STAT_ITEMS.ADAPTABILITY;
+function calculateCriticalDamageValue(values) {
+  const panel = parseFloat(values.panel) || 0;
+  
+  // 計算加算爆傷總和
+  let additiveSum = 0;
+  if (values.additive_damages && Array.isArray(values.additive_damages)) {
+    additiveSum = values.additive_damages.reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
+  }
+  
+  // 計算乘算爆傷總乘積: ∏[(m + 100) / 100]
+  let multiplicativeProduct = 1;
+  if (values.multiplicative_damages && Array.isArray(values.multiplicative_damages)) {
+    multiplicativeProduct = values.multiplicative_damages
+      .map(v => parseFloat(v) || 0)
+      .filter(v => v !== 0)
+      .reduce((prod, v) => prod * ((v + 100) / 100), 1);
+  }
+  
+  // 新公式: 面板 + 150 * (乘算總乘積 - 1) + 加算總和
+  const result = panel + 150 * (multiplicativeProduct - 1) + additiveSum;
+  return roundNumber(result);
+}
+
+// --------- 查詢函數 (從 DOM 獲取值) ---------
+
+/**
+ * 查詢特殊項目的 config 值（適應力、致命一擊傷害等）
+ * 從 DOM 中獲取該項目的 config1 和 config2 值
+ * @param {number} itemIndex - 項目索引
+ * @returns {Object} {config1, config2, itemIndex, itemName}
+ */
+function getItemConfigValues(itemIndex) {
   const panels = document.querySelectorAll('.input-panel-item');
   
-  // 找到適應力的面板
   for (let panel of panels) {
     if (parseInt(panel.dataset.index) === itemIndex) {
       const leftButton = panel.querySelector('.left-input');
       const resultButton = panel.querySelector('.result-input');
       
       if (leftButton) {
-        // 解析 "panel|gathering_place|adapt_potion|super_adapt|preset" 格式
-        const value = leftButton.dataset.value || '0|0|0|0|95';
-        const parts = value.split('|');
-        
-        let panelValue = parseFloat(parts[0]) || 0;
-        // 限制 panel 值不超過 60
-        panelValue = Math.min(panelValue, MAX_ADAPTABILITY_PANEL);
-        
-        const gatheringPlace = parts[1] === '1' ? 2 : 0;  // 集合地 +2
-        const adaptPotion = parts[2] === '1' ? 3 : 0;     // 適應靈藥 +3
-        const superAdapt = parseFloat(parts[3]) || 0;
-        
-        // 計算: min(panel + buff, 60) + super_adapt
-        const buffedPanel = Math.min(panelValue + gatheringPlace + adaptPotion, 60);
-        const config1 = buffedPanel + superAdapt;
-        
-        // 右側配置值計算方式相同
-        let config2 = 0;
-        if (resultButton) {
-          const resultValue = resultButton.dataset.value || '0|0|0|0|95';
-          const resultParts = resultValue.split('|');
-          
-          let resultPanelValue = parseFloat(resultParts[0]) || 0;
-          // 限制 panel 值不超過 60
-          resultPanelValue = Math.min(resultPanelValue, MAX_ADAPTABILITY_PANEL);
-          
-          const resultGatheringPlace = resultParts[1] === '1' ? 2 : 0;
-          const resultAdaptPotion = resultParts[2] === '1' ? 3 : 0;
-          const resultSuperAdapt = parseFloat(resultParts[3]) || 0;
-          
-          const resultBuffedPanel = Math.min(resultPanelValue + resultGatheringPlace + resultAdaptPotion, 60);
-          config2 = resultBuffedPanel + resultSuperAdapt;
-        }
+        const config1 = computeInputValue(leftButton);
+        const config2 = resultButton ? computeInputValue(resultButton) : 0;
         
         return {
-          config1: config1,
-          config2: config2,
-          itemIndex: itemIndex,
+          config1,
+          config2,
+          itemIndex,
           itemName: STAT_NAMES[itemIndex]
         };
       }
     }
   }
   
-  // 未找到該項，返回 0
   return {
     config1: 0,
     config2: 0,
-    itemIndex: itemIndex,
+    itemIndex,
     itemName: STAT_NAMES[itemIndex]
   };
 }
 
 /**
- * 計算致命一擊傷害 - 特殊計算方法
- * 公式: 面板 + 150 × (∏[(乘算+100)/100] - 1) + 加算總和
- * 面板值限制為最多 60（與適應力相同）
+ * 查詢特殊項目的 config 值（通用 DOM 查詢函數）
+ * 支持適應力、致命一擊傷害等複雜項目
+ * @param {number} itemIndex - 項目索引
+ * @returns {Object} {config1, config2, itemIndex, itemName}
  */
-function calculateCriticalDamage() {
-  const itemIndex = STAT_ITEMS.CRITICAL_DAMAGE;
-  const panels = document.querySelectorAll('.input-panel-item');
-  
-  // 找到致命一擊傷害的面板
-  for (let panel of panels) {
-    if (parseInt(panel.dataset.index) === itemIndex) {
-      const leftButton = panel.querySelector('.left-input');
-      const resultButton = panel.querySelector('.result-input');
-      
-      if (leftButton) {
-        // 解析 "panel|additive1,additive2,...|multiplicative1,multiplicative2,..." 格式
-        const value = leftButton.dataset.value || '0||';
-        const parts = value.split('|');
-        
-        const panelValue = parseFloat(parts[0]) || 0;
-        
-        // 解析加算爆傷 (CSV 格式)
-        let additiveSum = 0;
-        if (parts[1]) {
-          const additiveDamages = parts[1].split(',').map(v => {
-            const num = parseFloat(v);
-            return Number.isNaN(num) ? 0 : num;
-          });
-          additiveSum = additiveDamages.reduce((sum, v) => sum + v, 0);
-        }
-        
-        // 解析乘算爆傷 (CSV 格式)
-        let multiplicativeProduct = 1;
-        if (parts[2]) {
-          const multiplicativeDamages = parts[2].split(',').map(v => {
-            const num = parseFloat(v);
-            return Number.isNaN(num) ? 0 : num;
-          }).filter(v => v !== 0);
-          // 使用新公式的乘算計算方式: ∏[(m + 100) / 100]
-          multiplicativeProduct = multiplicativeDamages.reduce((prod, v) => prod * ((v + 100) / 100), 1);
-        }
-        
-        // 新公式: 面板 + 150 * (乘算總乘積 - 1) + 加算總和
-        const config1 = panelValue + 150 * (multiplicativeProduct - 1) + additiveSum;
-        
-        // 右側配置值計算方式相同
-        let config2 = 0;
-        if (resultButton) {
-          const resultValue = resultButton.dataset.value || '0||';
-          const resultParts = resultValue.split('|');
-          
-          const resultPanelValue = parseFloat(resultParts[0]) || 0;
-          
-          let resultAdditiveSum = 0;
-          if (resultParts[1]) {
-            const resultAdditiveDamages = resultParts[1].split(',').map(v => {
-              const num = parseFloat(v);
-              return Number.isNaN(num) ? 0 : num;
-            });
-            resultAdditiveSum = resultAdditiveDamages.reduce((sum, v) => sum + v, 0);
-          }
-          
-          let resultMultiplicativeProduct = 1;
-          if (resultParts[2]) {
-            const resultMultiplicativeDamages = resultParts[2].split(',').map(v => {
-              const num = parseFloat(v);
-              return Number.isNaN(num) ? 0 : num;
-            }).filter(v => v !== 0);
-            resultMultiplicativeProduct = resultMultiplicativeDamages.reduce((prod, v) => prod * ((v + 100) / 100), 1);
-          }
-          
-          config2 = resultPanelValue + 150 * (resultMultiplicativeProduct - 1) + resultAdditiveSum;
-        }
-        
-        return {
-          config1: config1,
-          config2: config2,
-          itemIndex: itemIndex,
-          itemName: STAT_NAMES[itemIndex]
-        };
-      }
-    }
-  }
-  
-  // 未找到該項，返回 0
-  return {
-    config1: 0,
-    config2: 0,
-    itemIndex: itemIndex,
-    itemName: STAT_NAMES[itemIndex]
-  };
+function getDOM(itemIndex) {
+  return getItemConfigValues(itemIndex);
 }
+
+// --------- 其他統計項目 ---------
 
 /**
  * 計算兩極化
@@ -394,7 +315,7 @@ function calculateAdaptabilityMultiplier(button) {
   const presetDebuff = parts[4] !== undefined ? parseFloat(parts[4]) : 95; // 環境debuff，默認95
   
   // 使用最終計算的適應力值（包含gathering_place和adapt_potion的buff）
-  const result = calculateAdaptability();
+  const result = getDOM(STAT_ITEMS.ADAPTABILITY);
   const currentValue = button.classList.contains('left-input') ? result.config1 : result.config2;
   
   // 計算乘數: min(100 - debuff + 當前值, 100) / 100
@@ -405,75 +326,73 @@ function calculateAdaptabilityMultiplier(button) {
 }
 
 /**
- * 計算配置1的乘積，當值為0或空時以1計算
- * 特殊處理: 適應力使用新乘數計算方式
+ * 計算配置乘積（通用函數）
+ * 當值為0或空時以1計算
+ * 使用全局快取 allValues，根據目前設定的公式計算乘積
+ * 特殊處理: 適應力需要取 debuff 值後計算乘數
+ * 
+ * @param {string} configType - 'config1' 或 'config2'
+ * @returns {number} 計算得到的乘積
  */
-function calculateConfig1Product() {
-  const panels = document.querySelectorAll('.input-panel-item');
-  if (panels.length === 0) return 1;
+function calculateConfigProduct(configType = 'config1') {
+  // 使用全局快取 allValues
+  if (!window.allStatValues) {
+    return 1;
+  }
+  
+  const allValues = window.allStatValues[configType];
+  if (!allValues) {
+    return 1;
+  }
   
   let product = 1;
-  panels.forEach(panel => {
-    const leftInput = panel.querySelector('.left-input');
-    if (leftInput) {
-      const itemIndex = parseInt(panel.dataset.index);
-      let effectiveValue;
+  
+  // 遍歷所有項目
+  for (let itemIndex in allValues) {
+    itemIndex = parseInt(itemIndex);
+    let value = allValues[itemIndex];
+    
+    // 適應力特殊處理：需要取 debuff 值後計算乘數
+    if (itemIndex === STAT_ITEMS.ADAPTABILITY) {
+      // 確定要查詢的按鈕 ID
+      const buttonId = configType === 'config1' 
+        ? `#stat-${itemIndex}-left`
+        : `#stat-${itemIndex}-result`;
       
-      if (itemIndex === STAT_ITEMS.ADAPTABILITY) {
-        // 適應力: 使用新的乘數計算方式
-        const multiplier = calculateAdaptabilityMultiplier(leftInput);
-        effectiveValue = multiplier;
-      } else if (itemIndex === STAT_ITEMS.CRITICAL_DAMAGE) {
-        // 致命一擊傷害: 將結果除以100後再乘入
-        const value = parseInputValue(leftInput);
-        effectiveValue = (value === 0 || value === null || value === undefined) ? 1 : (value / 100);
-      } else {
-        // 其他項目: 當值為0或空時以1計算
-        const value = parseInputValue(leftInput);
-        effectiveValue = (value === 0 || value === null || value === undefined) ? 1 : value;
+      const button = document.querySelector(buttonId);
+      if (button && button.dataset.value) {
+        const parts = button.dataset.value.split('|');
+        const debuff = parts[4] !== undefined ? parseFloat(parts[4]) : 95;  // preset 值，默認 95
+        
+        // 計算乘數：min(100 - debuff + value, 100) / 100
+        const multiplierBase = Math.min(100 - debuff + value, 100);
+        const multiplier = multiplierBase / 100;
+        
+        value = multiplier === 0 ? 1 : multiplier;
       }
-      
-      product *= effectiveValue;
     }
-  });
+    
+    const effectiveValue = (value === 0 || value === null || value === undefined) ? 1 : value;
+    product *= effectiveValue;
+  }
   
   return roundNumber(product);
 }
 
 /**
- * 計算配置2的乘積，當值為0或空時以1計算
- * 特殊處理: 適應力使用新乘數計算方式
+ * 計算配置1的乘積
+ * @returns {number} 配置1乘積
+ */
+function calculateConfig1Product() {
+  return calculateConfigProduct('config1');
+}
+
+/**
+ * 計算配置2的乘積
+ * @returns {number} 配置2乘積
  */
 function calculateConfig2Product() {
-  const panels = document.querySelectorAll('.input-panel-item');
-  if (panels.length === 0) return 1;
-  
-  let product = 1;
-  panels.forEach(panel => {
-    const resultInput = panel.querySelector('.result-input');
-    if (resultInput) {
-      const itemIndex = parseInt(panel.dataset.index);
-      let effectiveValue;
-      
-      if (itemIndex === STAT_ITEMS.ADAPTABILITY) {
-        // 適應力: 使用新的乘數計算方式
-        const multiplier = calculateAdaptabilityMultiplier(resultInput);
-        effectiveValue = multiplier;
-      } else if (itemIndex === STAT_ITEMS.CRITICAL_DAMAGE) {
-        // 致命一擊傷害: 將結果除以100後再乘入
-        const value = parseInputValue(resultInput);
-        effectiveValue = (value === 0 || value === null || value === undefined) ? 1 : (value / 100);
-      } else {
-        // 其他項目: 當值為0或空時以1計算
-        const value = parseInputValue(resultInput);
-        effectiveValue = (value === 0 || value === null || value === undefined) ? 1 : value;
-      }
-      
-      product *= effectiveValue;
-    }
-  });
-  
-  return roundNumber(product);
+  return calculateConfigProduct('config2');
 }
 
 /**
@@ -639,11 +558,13 @@ window.calculateAllStatProducts = calculateAllStatProducts;
 window.getStatItemValue = getStatItemValue;
 window.parseInputValue = parseInputValue;
 window.calculateAdaptabilityMultiplier = calculateAdaptabilityMultiplier;
+window.calculateAdaptabilityValue = calculateAdaptabilityValue;
+window.calculateCriticalDamageValue = calculateCriticalDamageValue;
 
 // 導出各統計項目的計算函數
 window.calculatePhysicalMagicAttack = calculatePhysicalMagicAttack;
-window.calculateAdaptability = calculateAdaptability;
-window.calculateCriticalDamage = calculateCriticalDamage;
+window.getDOM = getDOM;
+window.getItemConfigValues = getItemConfigValues;
 window.calculatePolarization = calculatePolarization;
 window.calculateBossDamage = calculateBossDamage;
 window.calculateHPThreshold = calculateHPThreshold;
@@ -693,10 +614,8 @@ function handleStatInputChange(itemIndex, configType, newValue) {
   const computeEngine = window.ComputeEngine;
   const computed = computeEngine.getComputedState(store, STAT_ITEMS, calculateAdaptability);
   
-  // Step 4: 更新視圖
-  updateProductDisplay();
-  
-  // Step 5: 分發事件（供測試監聽和擴展）
+  // Step 4: 分發事件（供測試監聽和擴展）
+  // 注：產品顯示更新會在 Step 5 的 syncAllStatValues() 中自動進行
   const event = new CustomEvent('statInputChanged', {
     detail: {
       itemIndex,
@@ -712,6 +631,9 @@ function handleStatInputChange(itemIndex, configType, newValue) {
     cancelable: false
   });
   window.dispatchEvent(event);
+  
+  // Step 5: 同步所有 stat 值到全局快取（自動觸發 updateProductDisplay()）
+  window.allStatValues = syncAllStatValues();
 }
 
 /**
@@ -747,7 +669,7 @@ function initializeNewArchitecture() {
   }
   
   const store = window.StatStore;
-  store.initFromDOM(parseInputValue, calculateAdaptability, STAT_ITEMS);
+  store.initFromDOM(parseInputValue, (itemIndex) => getDOM(itemIndex), STAT_ITEMS);
   
   // 訂閱狀態變化（可用於調試和高級功能）
   store.subscribe((eventType, data) => {
@@ -755,14 +677,120 @@ function initializeNewArchitecture() {
   });
 }
 
+/**
+ * 集中同步所有 stat 值
+ * 從 DOM 中收集所有 stat-N-left 和 stat-N-result 的值
+ * 用於快速訪問、狀態快照和調試
+ * 同步完成後自動更新產品顯示和比值
+ * 
+ * @returns {Object} 包含 config1 和 config2 的對象
+ *   config1: { 0: value, 1: value, ... }
+ *   config2: { 0: value, 1: value, ... }
+ */
+function syncAllStatValues() {
+  const allValues = {
+    config1: {},  // stat-N-left 的所有值
+    config2: {},  // stat-N-result 的所有值
+    timestamp: Date.now()
+  };
+  
+  // 遍歷所有 stat-N-left 元素
+  const leftElements = document.querySelectorAll('[id^="stat-"][id$="-left"]');
+  leftElements.forEach(element => {
+    const match = element.id.match(/stat-(\d+)-left/);
+    if (match) {
+      const index = parseInt(match[1]);
+      const value = computeInputValue(element);
+      allValues.config1[index] = value;
+    }
+  });
+  
+  // 遍歷所有 stat-N-result 元素
+  const resultElements = document.querySelectorAll('[id^="stat-"][id$="-result"]');
+  resultElements.forEach(element => {
+    const match = element.id.match(/stat-(\d+)-result/);
+    if (match) {
+      const index = parseInt(match[1]);
+      const value = computeInputValue(element);
+      allValues.config2[index] = value;
+    }
+  });
+  
+  // 同步完成後，自動更新產品顯示和比值
+  if (window.updateProductDisplay && typeof window.updateProductDisplay === 'function') {
+    setTimeout(() => {
+      window.updateProductDisplay();
+    }, 0);
+  }
+  
+  return allValues;
+}
+
+/**
+ * 獲取特定 stat 項的當前值
+ * @param {number} itemIndex - 項目索引 (0-10)
+ * @param {string} configType - 'config1' 或 'config2'
+ * @returns {number} 該項目的值
+ */
+function getStatValue(itemIndex, configType = 'config1') {
+  const selector = configType === 'config1' 
+    ? `#stat-${itemIndex}-left`
+    : `#stat-${itemIndex}-result`;
+  
+  const element = document.querySelector(selector);
+  return element ? computeInputValue(element) : 0;
+}
+
+/**
+ * 批量獲取多個 stat 項的值
+ * @param {Array<number>} indices - 項目索引數組
+ * @param {string} configType - 'config1' 或 'config2'
+ * @returns {Object} { itemIndex: value, ... }
+ */
+function getStatValues(indices, configType = 'config1') {
+  const result = {};
+  indices.forEach(index => {
+    result[index] = getStatValue(index, configType);
+  });
+  return result;
+}
+
+/**
+ * 驗證 stat 值的完整性
+ * 確保所有 11 個項目都有值（即使是 0）
+ * 用於調試和數據驗證
+ * 
+ * @returns {Object} { valid: boolean, missing: Array, stats: Object }
+ */
+function validateStatValues() {
+  const allValues = syncAllStatValues();
+  const expectedIndices = Object.keys(STAT_ITEMS).map(key => STAT_ITEMS[key]);
+  
+  const config1Missing = expectedIndices.filter(idx => !(idx in allValues.config1));
+  const config2Missing = expectedIndices.filter(idx => !(idx in allValues.config2));
+  
+  return {
+    valid: config1Missing.length === 0 && config2Missing.length === 0,
+    config1Missing,
+    config2Missing,
+    stats: allValues
+  };
+}
+
 // 導出新架構的函數供外部使用
 window.handleStatInputChange = handleStatInputChange;
 window.getStatSnapshot = getStatSnapshot;
 window.initializeNewArchitecture = initializeNewArchitecture;
+window.syncAllStatValues = syncAllStatValues;
+window.getStatValue = getStatValue;
+window.getStatValues = getStatValues;
+window.validateStatValues = validateStatValues;
 
 // 初始化
 function init() {
   updateProductDisplay();
+  // 頁面加載完成後，同步初始值到全局快取
+  window.allStatValues = syncAllStatValues();
 }
 
 if (document.readyState === 'loading') {
