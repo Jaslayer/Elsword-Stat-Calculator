@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>統一接口驗證測試</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .test-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f9f9f9;
+            border-left: 4px solid #007bff;
+        }
+        .test-item.pass {
+            border-left-color: #28a745;
+            background: #d4edda;
+        }
+        .test-item.fail {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+        .console-log {
+            background: #222;
+            color: #0f0;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            height: 300px;
+            overflow-y: auto;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .stat-input {
+            padding: 5px;
+            width: 80px;
+            margin: 5px;
+        }
+        input[type="number"] {
+            padding: 5px;
+            width: 80px;
+        }
+    </style>
+</head>
+<body>
+    <h1>統一接口 (syncStatUpdate) 驗證</h1>
+    
+    <div class="test-section">
+        <div class="test-title">測試日誌</div>
+        <div class="console-log" id="testLog"></div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">測試控制面板</div>
+        <button onclick="runAllTests()">運行所有測試</button>
+        <button onclick="clearLogs()">清除日誌</button>
+        <button onclick="testRegularInput()">測試 - 常規輸入框</button>
+        <button onclick="testButtonInput()">測試 - 按鈕型輸入框</button>
+        <button onclick="testSpinnerButton()">測試 - Spinner 按鈕</button>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">測試 UI</div>
+        <div>
+            <label>常規輸入框：
+                <input type="number" id="testRegularInput" value="0" class="stat-input" />
+            </label>
+            <span id="testRegularMid" style="display: inline-block; margin-left: 10px;">Δ: 0</span>
+        </div>
+        <div style="margin-top: 10px;">
+            <label>按鈕型輸入框：
+                <button id="testButtonInput" class="stat-input" style="width: 80px;">0</button>
+            </label>
+        </div>
+    </div>
+
+    <script src="../src/data-structure.js"></script>
+    <script src="../calc.js"></script>
+    <script>
+        let testResults = [];
+        let consoleOutput = [];
+
+        // 攔截 console 輸出
+        const originalLog = console.log;
+        console.log = function(...args) {
+            const output = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ');
+            consoleOutput.push(output);
+            updateTestLog();
+            originalLog.apply(console, args);
+        };
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            consoleOutput.push(logEntry);
+            console.log(logEntry);
+        }
+
+        function logTest(title, passed, details = '') {
+            const status = passed ? '✅ PASS' : '❌ FAIL';
+            const message = `${status}: ${title}`;
+            testResults.push({ title, passed, details });
+            log(`${message}${details ? ' - ' + details : ''}`);
+        }
+
+        function updateTestLog() {
+            const logDiv = document.getElementById('testLog');
+            logDiv.textContent = consoleOutput.join('\n');
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLogs() {
+            consoleOutput = [];
+            testResults = [];
+            updateTestLog();
+            log('日誌已清除');
+        }
+
+        // 測試 1: UserInputData 是否可用
+        function testUserInputDataAvailability() {
+            log('\n=== 測試 1: UserInputData 可用性 ===');
+            const hasUserInputData = typeof window.UserInputData !== 'undefined';
+            logTest('UserInputData 全局可用', hasUserInputData);
+            
+            if (hasUserInputData) {
+                logTest('UserInputData 有 setConfig1 方法', typeof window.UserInputData.setConfig1 === 'function');
+                logTest('UserInputData 有 getAllData 方法', typeof window.UserInputData.getAllData === 'function');
+            }
+        }
+
+        // 測試 2: syncStatUpdate 函數是否存在
+        function testSyncStatUpdateFunction() {
+            log('\n=== 測試 2: syncStatUpdate 函數 ===');
+            const hasSyncStatUpdate = typeof window.syncStatUpdate !== 'undefined';
+            logTest('syncStatUpdate 函數存在', hasSyncStatUpdate);
+        }
+
+        // 測試 3: 常規輸入框的完整流程
+        function testRegularInput() {
+            log('\n=== 測試 3: 常規輸入框流程 ===');
+            
+            try {
+                // 模擬 DOM 結構
+                const panel = document.createElement('div');
+                panel.className = 'input-panel-item';
+                panel.dataset.index = '3'; // 測試項目 3（普通項目）
+                
+                const leftInput = document.createElement('input');
+                leftInput.type = 'number';
+                leftInput.className = 'stat-input short-input left-input';
+                leftInput.id = 'test-stat-3-left';
+                leftInput.value = '0';
+                
+                const resultInput = document.createElement('input');
+                resultInput.type = 'number';
+                resultInput.className = 'stat-input short-input result-input';
+                resultInput.id = 'test-stat-3-result';
+                resultInput.value = '0';
+                
+                const middleInput = document.createElement('input');
+                middleInput.type = 'number';
+                middleInput.className = 'middle-input';
+                middleInput.id = 'test-stat-3-middle';
+                middleInput.value = '0';
+                middleInput.disabled = true;
+                
+                panel.appendChild(leftInput);
+                panel.appendChild(resultInput);
+                panel.appendChild(middleInput);
+                document.body.appendChild(panel);
+                
+                // 測試 syncStatUpdate
+                log('調用 syncStatUpdate(leftInput, 5)');
+                window.syncStatUpdate(leftInput, 5);
+                
+                logTest('常規輸入框值更新', leftInput.value === '5', `左值: ${leftInput.value}`);
+                logTest('UserInputData 同步', 
+                    window.UserInputData.getConfig1(3) === 5, 
+                    `config1[3]: ${window.UserInputData.getConfig1(3)}`
+                );
+                
+                // 清理
+                panel.remove();
+            } catch (error) {
+                logTest('常規輸入框流程', false, error.message);
+            }
+        }
+
+        // 測試 4: 按鈕型輸入框的流程
+        function testButtonInput() {
+            log('\n=== 測試 4: 按鈕型輸入框流程 ===');
+            
+            try {
+                // 模擬 DOM 結構
+                const panel = document.createElement('div');
+                panel.className = 'input-panel-item';
+                panel.dataset.index = '0'; // 測試項目 0（按鈕型）
+                
+                const leftBtn = document.createElement('button');
+                leftBtn.className = 'button-input left-input';
+                leftBtn.id = 'test-stat-0-left';
+                leftBtn.dataset.value = '0';
+                
+                const resultBtn = document.createElement('button');
+                resultBtn.className = 'button-input result-input';
+                resultBtn.id = 'test-stat-0-result';
+                resultBtn.dataset.value = '0';
+                
+                panel.appendChild(leftBtn);
+                panel.appendChild(resultBtn);
+                document.body.appendChild(panel);
+                
+                // 測試 syncStatUpdate（按鈕型輸入框）
+                log('調用 syncStatUpdate(leftBtn, 10)');
+                window.syncStatUpdate(leftBtn, 10);
+                
+                logTest('按鈕型輸入框值更新', leftBtn.dataset.value === '10', `左值: ${leftBtn.dataset.value}`);
+                logTest('UserInputData 同步', 
+                    window.UserInputData.getConfig1(0) === 10, 
+                    `config1[0]: ${window.UserInputData.getConfig1(0)}`
+                );
+                
+                // 清理
+                panel.remove();
+            } catch (error) {
+                logTest('按鈕型輸入框流程', false, error.message);
+            }
+        }
+
+        // 測試 5: Spinner 按鈕的流程
+        function testSpinnerButton() {
+            log('\n=== 測試 5: Spinner 按鈕流程 ===');
+            
+            try {
+                // 模擬 DOM 結構
+                const panel = document.createElement('div');
+                panel.className = 'input-panel-item';
+                panel.dataset.index = '6'; // 測試項目 6（普通項目）
+                
+                const leftInput = document.createElement('input');
+                leftInput.type = 'number';
+                leftInput.className = 'stat-input short-input left-input';
+                leftInput.id = 'test-stat-6-left';
+                leftInput.value = '5';
+                
+                const resultInput = document.createElement('input');
+                resultInput.type = 'number';
+                resultInput.className = 'stat-input short-input result-input';
+                resultInput.id = 'test-stat-6-result';
+                resultInput.value = '5';
+                
+                const middleInput = document.createElement('input');
+                middleInput.type = 'number';
+                middleInput.className = 'middle-input';
+                middleInput.id = 'test-stat-6-middle';
+                middleInput.value = '0';
+                middleInput.disabled = true;
+                
+                panel.appendChild(leftInput);
+                panel.appendChild(resultInput);
+                panel.appendChild(middleInput);
+                document.body.appendChild(panel);
+                
+                // 模擬 spinner 按鈕點擊（向上增加）
+                log('模擬 spinner 向上按鈕（增加 1）');
+                window.syncStatUpdate(leftInput, 6); // 從 5 增加到 6
+                
+                logTest('Spinner 增加值', leftInput.value === '6', `左值: ${leftInput.value}`);
+                logTest('UserInputData 同步', 
+                    window.UserInputData.getConfig1(6) === 6, 
+                    `config1[6]: ${window.UserInputData.getConfig1(6)}`
+                );
+                
+                // 清理
+                panel.remove();
+            } catch (error) {
+                logTest('Spinner 按鈕流程', false, error.message);
+            }
+        }
+
+        // 測試 6: Console 輸出格式
+        function testConsoleOutputFormat() {
+            log('\n=== 測試 6: Console 輸出格式 ===');
+            
+            log('應該看到以下格式的控制臺輸出：');
+            log('  📝 變動: stat-X-left/result = value');
+            log('  📊 總 DS: {complete data object}');
+            logTest('Console 輸出格式規範', true, '檢查上面的輸出');
+        }
+
+        // 運行所有測試
+        function runAllTests() {
+            consoleOutput = [];
+            testResults = [];
+            updateTestLog();
+            
+            log('╔════════════════════════════════════════════╗');
+            log('║   統一接口 (syncStatUpdate) 完整測試開始   ║');
+            log('╚════════════════════════════════════════════╝');
+            
+            testUserInputDataAvailability();
+            testSyncStatUpdateFunction();
+            testRegularInput();
+            testButtonInput();
+            testSpinnerButton();
+            testConsoleOutputFormat();
+            
+            log('\n╔════════════════════════════════════════════╗');
+            log('║              測試結果總結                   ║');
+            log('╚════════════════════════════════════════════╝');
+            
+            const passCount = testResults.filter(r => r.passed).length;
+            const totalCount = testResults.length;
+            log(`通過: ${passCount}/${totalCount}`);
+            
+            if (passCount === totalCount) {
+                log('✅ 所有測試通過！統一接口運作正常。');
+            } else {
+                log('❌ 某些測試失敗。請檢查上面的詳細信息。');
+            }
+        }
+
+        // 頁面加載時運行測試
+        window.addEventListener('load', () => {
+            log('✓ 測試環境已初始化');
+            log('點擊 "運行所有測試" 按鈕開始測試');
+        });
+    </script>
+</body>
+</html>

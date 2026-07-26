@@ -76,42 +76,87 @@
       };
 
       /**
-       * 主幹函數：統一管理整個統計項目更新流程
-       * 流程: User修改input → 調整3方運算 → 更新button-input → 計算所有統計結果 → 更新產品顯示
-       * @param {Element} changedElement - 改變的輸入元素
+       * 統一接口：所有 input/click/spinner 事件都通過此函數處理
+       * 流程: 更新 element 值 → 調用 calc.js 更新 UserInputData → 回到 index.html 更新顯示
+       * @param {Element} element - 改變的輸入元素
+       * @param {number} newValue - 新值（可選，如果不提供則從 element 讀取）
        */
-      function triggerFullStatUpdate(changedElement) {
-        if (!changedElement) return;
+      function syncStatUpdate(element, newValue) {
+        if (!element) return;
 
         // 找到所屬的面板
-        const panelDiv = changedElement.closest('.input-panel-item');
-        if (!panelDiv) {
-          return;
+        const panelDiv = element.closest('.input-panel-item');
+        if (!panelDiv) return;
+
+        // Step 1: 更新 element 的值
+        const getInputValue = (el) => {
+          const value = window.computeInputValue ? window.computeInputValue(el) : 0;
+          return roundNumber(value);
+        };
+
+        const setInputValue = (el, val) => {
+          const precisedValue = roundNumber(val);
+          if (el.classList.contains('button-input')) {
+            if (el.dataset.value && el.dataset.value.includes('|')) {
+              const parts = el.dataset.value.split('|');
+              if (parts.length >= 3) {
+                el.dataset.value = `${precisedValue}|${parts[1]}|${parts[2]}`;
+              } else if (parts.length === 2) {
+                el.dataset.value = `${precisedValue}|${parts[1]}`;
+              } else {
+                el.dataset.value = precisedValue;
+              }
+            } else {
+              el.dataset.value = precisedValue;
+            }
+            const displayValue = getInputValue(el);
+            el.textContent = displayValue === 0 ? '' : displayValue;
+          } else {
+            el.value = precisedValue;
+          }
+        };
+
+        if (newValue !== undefined) {
+          setInputValue(element, newValue);
         }
 
-        // 第1步: 如果是 button-input，觸發三向綁定調整
-        if (changedElement.classList.contains('button-input') && panelDiv.triggerThreeWayBinding) {
-          panelDiv.triggerThreeWayBinding(changedElement);
+        // Step 2: 調用 calc.js 的函數更新 UserInputData
+        if (window.updateUserDataFromElement && typeof window.updateUserDataFromElement === 'function') {
+          window.updateUserDataFromElement(element);
         }
 
-        // 第2步: 觸發 button 的 change 事件，讓 button-input 更新
-        if (changedElement.classList.contains('button-input')) {
-          changedElement.dispatchEvent(new Event('change', { bubbles: true }));
+        // Step 3: 回到 index.html 更新顯示
+        // 觸發三向綁定更新
+        if (panelDiv.triggerThreeWayBinding && element.classList.contains('button-input')) {
+          panelDiv.triggerThreeWayBinding(element);
+        } else if (!element.classList.contains('button-input')) {
+          // 常規輸入框也需要更新三向綁定
+          const leftInput = panelDiv.querySelector('.left-input');
+          const resultInput = panelDiv.querySelector('.result-input');
+          const middleInput = panelDiv.querySelector('.middle-input');
+          if (leftInput && resultInput && middleInput) {
+            const leftVal = getInputValue(leftInput);
+            const resultVal = getInputValue(resultInput);
+            middleInput.value = roundNumber(resultVal - leftVal);
+          }
         }
 
-        // 第3步: 更新所有統計結果顯示（會自動調用 calculateAdaptability 等函數）
+        // 更新產品顯示
         if (window.updateProductDisplay && typeof window.updateProductDisplay === 'function') {
-          requestAnimationFrame(() => {
-            window.updateProductDisplay();
-          });
-        }
-
-        // 第4步: 更新全局 allStatValues 快取
-        if (window.syncAllStatValues && typeof window.syncAllStatValues === 'function') {
-          window.allStatValues = window.syncAllStatValues();
+          window.updateProductDisplay();
         }
       }
 
+      /**
+       * 主幹函數：統一管理整個統計項目更新流程（向後相容）
+       * @param {Element} changedElement - 改變的輸入元素
+       */
+      function triggerFullStatUpdate(changedElement) {
+        syncStatUpdate(changedElement);
+      }
+
+      // 導出統一接口函數到 window 對象
+      window.syncStatUpdate = syncStatUpdate;
 
       const statItems = document.querySelectorAll('.stat-item');
       const STORAGE_KEY = 'selectedGameStats';
@@ -529,50 +574,6 @@
           }
         };
         
-        // 上下按钮的处理函数
-        const handleSpinnerChange = (inputElement, increment) => {
-          // 支持按鈕型輸入框
-          if (inputElement.classList.contains('button-input')) {
-            // 檢查是否有特殊對話框配置（如適應力）
-            const itemIndex = parseInt(panelDiv.dataset.index);
-            if (SPECIAL_DIALOGS[itemIndex]) {
-              // 如果有特殊對話框，打開對話框並傳遞增量
-              const type = inputElement.classList.contains('left-input') ? 'left' : 'result';
-              openSpecialDialog(inputElement, type, itemIndex, panelDiv, SPECIAL_DIALOGS[itemIndex], increment);
-              return;
-            }
-            
-            // 沒有特殊對話框時，直接修改值
-            const currentValue = getInputValue(inputElement);
-            let newValue = roundNumber(currentValue + increment);
-            
-            // 使用 setInputValue 以正確處理適應力的 "panel|super" 格式
-            setInputValue(inputElement, newValue);
-            
-            // 觸發三向綁定更新
-            if (panelDiv.triggerThreeWayBinding) {
-              panelDiv.triggerThreeWayBinding(inputElement);
-            }
-            return;
-          }
-          
-          // 常規輸入框邏輯
-          const currentValue = inputElement.value;
-          let newValue;
-          
-          if (currentValue === '' || currentValue === null) {
-            newValue = increment;
-          } else {
-            const num = parseFloat(currentValue);
-            // 保留小数点精度并进行精度处理
-            newValue = roundNumber(num + increment);
-          }
-          
-          inputElement.value = newValue;
-          // 触发 input 事件以更新关联的计算
-          inputElement.dispatchEvent(new Event('input', { bubbles: true }));
-        };
-        
         // 為按鈕型輸入框添加事件處理
         if (useButtonInput) {
           const leftBtn = panelDiv.querySelector('.left-input');
@@ -600,8 +601,7 @@
           // 按鈕型輸入框不需要綁定 input 事件
         } else {
           leftInput.addEventListener('input', () => {
-            triggerThreeWayBinding(leftInput);
-            triggerFullStatUpdate(leftInput);
+            syncStatUpdate(leftInput);
           });
         }
         
@@ -610,8 +610,7 @@
           // 按鈕型輸入框不需要綁定 input 事件
         } else {
           resultInput.addEventListener('input', () => {
-            triggerThreeWayBinding(resultInput);
-            triggerFullStatUpdate(resultInput);
+            syncStatUpdate(resultInput);
           });
         }
         
@@ -634,7 +633,18 @@
             }
             
             if (inputElement) {
-              handleSpinnerChange(inputElement, increment);
+              if (inputElement.classList.contains('button-input')) {
+                // 按鈕型輸入框：打開對話框，傳入 spinnerIncrement
+                if (SPECIAL_DIALOGS[index]) {
+                  openSpecialDialog(inputElement, dataType, index, panelDiv, SPECIAL_DIALOGS[index], increment);
+                }
+              } else {
+                // 常規輸入框：直接改值
+                const currentValue = parseFloat(inputElement.value) || 0;
+                const newValue = roundNumber(currentValue + increment);
+                inputElement.value = newValue;
+                syncStatUpdate(inputElement);
+              }
             }
           });
         });
@@ -815,8 +825,8 @@
           if (value === undefined) return;
           html += `
             <div class="dialog-dynamic-row" data-add-index="${addIndex}">
-              <input type="number" class="dialog-input dialog-additive-input" data-index="${addIndex}" value="${value || ''}" placeholder="" style="flex: 1;" />
-              <select class="dialog-preset-select dialog-additive-preset" data-index="${addIndex}" style="flex-shrink: 0; width: 200px;">
+              <input type="number" class="dialog-input dialog-additive-input" id="dialog-additive-${addIndex}" data-index="${addIndex}" value="${value || ''}" placeholder="" style="flex: 1;" />
+              <select class="dialog-preset-select dialog-additive-preset" id="dialog-additive-preset-${addIndex}" data-index="${addIndex}" style="flex-shrink: 0; width: 200px;">
                 <option value="custom" selected>自訂</option>
               </select>
               <button class="dialog-delete-btn" type="button" data-index="${addIndex}" aria-label="刪除">−</button>
@@ -836,8 +846,8 @@
           ).join('');
           html += `
             <div class="dialog-dynamic-row" data-mul-index="${mulIndex}">
-              <input type="number" class="dialog-input dialog-multiplicative-input" data-index="${mulIndex}" value="${value || ''}" placeholder="" style="flex: 1;" />
-              <select class="dialog-preset-select dialog-multiplicative-preset" data-index="${mulIndex}" style="flex-shrink: 0; width: 200px;">
+              <input type="number" class="dialog-input dialog-multiplicative-input" id="dialog-multiplicative-${mulIndex}" data-index="${mulIndex}" value="${value || ''}" placeholder="" style="flex: 1;" />
+              <select class="dialog-preset-select dialog-multiplicative-preset" id="dialog-multiplicative-preset-${mulIndex}" data-index="${mulIndex}" style="flex-shrink: 0; width: 200px;">
                 <option value="custom">自訂</option>${presetOptions}
               </select>
               <button class="dialog-delete-btn" type="button" data-index="${mulIndex}" aria-label="刪除">−</button>
@@ -980,7 +990,7 @@
           
           button.dataset.value = config.serialize(values);
           button.textContent = (config.getDisplayValue(values) === 0 || config.getDisplayValue(values) === '0') ? '' : config.getDisplayValue(values);
-          triggerFullStatUpdate(button);
+          syncStatUpdate(button);
         };
         
         // 綁定 panel 輸入和按鈕事件
@@ -1006,10 +1016,11 @@
           e.preventDefault();
           const newRow = document.createElement('div');
           newRow.className = 'dialog-dynamic-row';
-          newRow.dataset.addIndex = Date.now();
+          const addIndex = Date.now();
+          newRow.dataset.addIndex = addIndex;
           newRow.innerHTML = `
-            <input type="number" class="dialog-input dialog-additive-input" placeholder="" style="flex: 1;" />
-            <select class="dialog-preset-select dialog-additive-preset" style="flex-shrink: 0; width: 200px;">
+            <input type="number" class="dialog-input dialog-additive-input" id="dialog-additive-${addIndex}" placeholder="" style="flex: 1;" />
+            <select class="dialog-preset-select dialog-additive-preset" id="dialog-additive-preset-${addIndex}" style="flex-shrink: 0; width: 200px;">
               <option value="custom" selected>自訂</option>
             </select>
             <button class="dialog-delete-btn" type="button" aria-label="刪除">−</button>
@@ -1024,11 +1035,12 @@
           e.preventDefault();
           const newRow = document.createElement('div');
           newRow.className = 'dialog-dynamic-row';
-          newRow.dataset.mulIndex = Date.now();
+          const mulIndex = Date.now();
+          newRow.dataset.mulIndex = mulIndex;
           const presetOptions = multiplicativePresets.map(p => `<option value="${p.value}">${p.label}</option>`).join('');
           newRow.innerHTML = `
-            <input type="number" class="dialog-input dialog-multiplicative-input" placeholder="" style="flex: 1;" />
-            <select class="dialog-preset-select dialog-multiplicative-preset" style="flex-shrink: 0; width: 200px;">
+            <input type="number" class="dialog-input dialog-multiplicative-input" id="dialog-multiplicative-${mulIndex}" placeholder="" style="flex: 1;" />
+            <select class="dialog-preset-select dialog-multiplicative-preset" id="dialog-multiplicative-preset-${mulIndex}" style="flex-shrink: 0; width: 200px;">
               <option value="custom" selected>自訂</option>${presetOptions}
             </select>
             <button class="dialog-delete-btn" type="button" aria-label="刪除">−</button>
@@ -1180,7 +1192,8 @@
           if (config.type === 'simple-number') {
             parsedValues.value = Math.max(0, parsedValues.value + spinnerIncrement);
           } else if (config.type === 'multi-field') {
-            parsedValues.panel = Math.max(0, Math.min(parsedValues.panel + spinnerIncrement, MAX_ADAPTABILITY_PANEL));
+            // ★ 移除最大值限制：輸入階段允許任意值
+            parsedValues.panel = Math.max(0, parsedValues.panel + spinnerIncrement);
           }
         }
         
@@ -1230,11 +1243,8 @@
                 value = field.minValue;
                 fieldElements[field.name].value = value;
               }
-              // 應用最大值限制 (適應力面板最大 60)
-              if (field.maxValue !== undefined && value > field.maxValue) {
-                value = field.maxValue;
-                fieldElements[field.name].value = value;
-              }
+              // ★ 最大值限制移除：輸入階段允許任意值（包括 > 60）
+              // 計算階段的限制已在 calc.js 的 calculateAdaptabilityValue() 中實現
             }
             
             values[field.name] = value;
@@ -1249,8 +1259,8 @@
           // 如果顯示值為0或'0'，保持空白；否則顯示值
           button.textContent = (displayValue === 0 || displayValue === '0') ? '' : displayValue;
           
-          // 調用主幹函數進行完整更新流程
-          triggerFullStatUpdate(button);
+          // 調用統一接口進行完整更新流程
+          syncStatUpdate(button);
           
           // ★ 適應力 preset 同步邏輯 ★
           // 配置1與2的環境Debuff設置要同步
@@ -1279,8 +1289,8 @@
                   const displayValue = config.getDisplayValue ? config.getDisplayValue(otherParsedValues) : otherParsedValues[config.displayField];
                   otherButton.textContent = (displayValue === 0 || displayValue === '0') ? '' : displayValue;
                   
-                  // 觸發另一個按鈕的完整更新流程
-                  triggerFullStatUpdate(otherButton);
+                  // 觸發另一個按鈕的統一接口更新流程
+                  syncStatUpdate(otherButton);
                 }
               }
             }
@@ -1293,7 +1303,10 @@
         // 定義焦點處理
         const handleOtherInputFocus = (e) => {
           const isOwnElement = config.fields.some(field => fieldElements[field.name] === e.target);
-          if ((e.target.classList.contains('stat-input') || e.target.classList.contains('button-input')) && !isOwnElement) {
+          // 排除 spinner 按鈕：點擊 spinner 時不關閉對話框
+          const isSpinnerButton = e.target.classList.contains('dialog-spinner-btn') || 
+                                  e.target.closest('.dialog-spinner-btn') !== null;
+          if (!isSpinnerButton && (e.target.classList.contains('stat-input') || e.target.classList.contains('button-input')) && !isOwnElement) {
             closeDialog();
           }
         };
@@ -1328,7 +1341,10 @@
         };
         
         const handleDocumentClick = (e) => {
-          if (dialog.contains(e.target) || (e.target.closest && e.target.closest(`#${config.dialogId}`))) {
+          // 排除對話框內部和 spinner 按鈕的點擊
+          if ((dialog.contains(e.target) || (e.target.closest && e.target.closest(`#${config.dialogId}`))) || 
+              e.target.classList.contains('dialog-spinner-btn') ||
+              (e.target.closest && e.target.closest('.dialog-spinner-btn'))) {
             return;
           }
           closeDialog();
@@ -1361,6 +1377,7 @@
                 if (upBtn) {
                   upBtn.addEventListener('click', (e) => {
                     e.preventDefault();
+                    e.stopPropagation();  // 防止事件冒泡到關閉對話框的邏輯
                     handleDialogSpinnerChange(element, field, 1, handleInputChange);
                   });
                 }
@@ -1368,6 +1385,7 @@
                 if (downBtn) {
                   downBtn.addEventListener('click', (e) => {
                     e.preventDefault();
+                    e.stopPropagation();  // 防止事件冒泡到關閉對話框的邏輯
                     handleDialogSpinnerChange(element, field, -1, handleInputChange);
                   });
                 }
@@ -1436,6 +1454,8 @@
       // 無論有沒有 panels，都計算高度（設置默認高度）
       setTimeout(updatePanelHeight, 50);
     </script>
+    <!-- 簡易數據結構 -->
+    <script src="src/data-structure.js"></script>
     <!-- 新架構：状态管理层 -->
     <script src="src/store.js"></script>
     <!-- 新架構：計算引擎層 -->

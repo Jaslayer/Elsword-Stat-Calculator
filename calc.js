@@ -137,12 +137,11 @@ function calculatePhysicalMagicAttack() {
  * @param {Object} values - 包含 panel, gathering_place, adapt_potion, super_adapt 的對象
  * @returns {number} 計算結果
  * 公式: min(panel + gathering_place_buff + adapt_potion_buff, 60) + super_adapt
- * 面板值限制為最多 60
+ * 輸入時允許超過 60，但計算時限制在 60
  */
 function calculateAdaptabilityValue(values) {
   let panelValue = parseFloat(values.panel) || 0;
-  // 限制 panel 值不超過 60
-  panelValue = Math.min(panelValue, MAX_ADAPTABILITY_PANEL);
+  // 允許輸入超過 60，不在此限制
   
   const gatheringPlace = values.gathering_place ? 2 : 0;  // 集合地 +2
   const adaptPotion = values.adapt_potion ? 3 : 0;        // 適應靈藥 +3
@@ -335,24 +334,22 @@ function calculateAdaptabilityMultiplier(button) {
  * @returns {number} 計算得到的乘積
  */
 function calculateConfigProduct(configType = 'config1') {
-  // 使用全局快取 allValues
-  if (!window.allStatValues) {
-    return 1;
-  }
-  
-  const allValues = window.allStatValues[configType];
-  if (!allValues) {
+  // 使用 UserInputData 而非舊的 allStatValues 快取
+  if (!window.UserInputData) {
     return 1;
   }
   
   let product = 1;
   
-  // 遍歷所有項目
-  for (let itemIndex in allValues) {
+  // 取得正確的配置物件
+  const configData = configType === 'config1' ? window.UserInputData.config1 : window.UserInputData.config2;
+  
+  // 遍歷所有項目（從 config1 或 config2 中取值）
+  for (let itemIndex in configData) {
     itemIndex = parseInt(itemIndex);
-    let value = allValues[itemIndex];
+    let value = configData[itemIndex];
     
-    // 適應力特殊處理：需要取 debuff 值後計算乘數
+    // 適應力特殊處理：需要計算實際乘數
     if (itemIndex === STAT_ITEMS.ADAPTABILITY) {
       // 確定要查詢的按鈕 ID
       const buttonId = configType === 'config1' 
@@ -362,10 +359,11 @@ function calculateConfigProduct(configType = 'config1') {
       const button = document.querySelector(buttonId);
       if (button && button.dataset.value) {
         const parts = button.dataset.value.split('|');
-        const debuff = parts[4] !== undefined ? parseFloat(parts[4]) : 95;  // preset 值，默認 95
+        const panel = parseInt(parts[0]) || 0;           // panel 值
+        const debuff = parts[4] !== undefined ? parseFloat(parts[4].replace('%', '')) : 95;  // preset 值
         
-        // 計算乘數：min(100 - debuff + value, 100) / 100
-        const multiplierBase = Math.min(100 - debuff + value, 100);
+        // 計算乘數：min(100 - debuff + panel, 100) / 100
+        const multiplierBase = Math.min(100 - debuff + panel, 100);
         const multiplier = multiplierBase / 100;
         
         value = multiplier === 0 ? 1 : multiplier;
@@ -468,8 +466,28 @@ function updateProductDisplay() {
   const headerPanel = document.querySelector('.input-panel-header');
   if (!headerPanel) return;
   
+  // 計算產品值
   const config1Product = calculateConfig1Product();
   const config2Product = calculateConfig2Product();
+  
+  // 計算比值
+  const ratioValue = window.ComputeEngine && window.ComputeEngine.calculateRatioValue
+    ? window.ComputeEngine.calculateRatioValue(config1Product, config2Product)
+    : (function() {
+        const maxProduct = Math.max(config1Product, config2Product);
+        const minProduct = Math.min(config1Product, config2Product);
+        return minProduct === 0 ? '-' : (maxProduct / minProduct).toFixed(7);
+      })();
+  
+  // ✨ 保存到 UserInputData
+  if (window.UserInputData) {
+    window.UserInputData.setComputedResults(config1Product, config2Product, ratioValue);
+  }
+  
+  // 從 UserInputData 中讀取顯示值
+  const displayConfig1 = window.UserInputData ? window.UserInputData.config1Product : config1Product;
+  const displayConfig2 = window.UserInputData ? window.UserInputData.config2Product : config2Product;
+  const displayRatio = window.UserInputData ? window.UserInputData.ratioValue : ratioValue;
   
   const configWrappers = headerPanel.querySelectorAll('.config-wrapper');
   if (configWrappers.length < 2) return;
@@ -483,8 +501,8 @@ function updateProductDisplay() {
     config1ProductDiv.style.cssText = 'color: rgba(255, 255, 255, 0.9); text-align: center; margin-bottom: 4px; font-weight: 600;';
     config1Wrapper.appendChild(config1ProductDiv);
   }
-  config1ProductDiv.textContent = config1Product;
-  config1ProductDiv.style.fontSize = getAdaptiveFontSize(config1Product) + 'px';
+  config1ProductDiv.textContent = displayConfig1;
+  config1ProductDiv.style.fontSize = getAdaptiveFontSize(displayConfig1) + 'px';
   
   // 更新配置2乘積
   const config2Wrapper = configWrappers[1];
@@ -495,18 +513,18 @@ function updateProductDisplay() {
     config2ProductDiv.style.cssText = 'color: rgba(255, 255, 255, 0.9); text-align: center; margin-bottom: 4px; font-weight: 600;';
     config2Wrapper.appendChild(config2ProductDiv);
   }
-  config2ProductDiv.textContent = config2Product;
-  config2ProductDiv.style.fontSize = getAdaptiveFontSize(config2Product) + 'px';
+  config2ProductDiv.textContent = displayConfig2;
+  config2ProductDiv.style.fontSize = getAdaptiveFontSize(displayConfig2) + 'px';
   
   // 根據數值大小決定哪個配置亮起
   const config1Panels = document.querySelectorAll('.config-wrapper:nth-child(2)');
   const config2Panels = document.querySelectorAll('.config-wrapper:nth-child(3)');
   
-  if (config1Product > config2Product) {
+  if (displayConfig1 > displayConfig2) {
     // 配置1數值較大，亮起配置1
     config1Panels.forEach(panel => panel.classList.add('highlighted'));
     config2Panels.forEach(panel => panel.classList.remove('highlighted'));
-  } else if (config2Product > config1Product) {
+  } else if (displayConfig2 > displayConfig1) {
     // 配置2數值較大，亮起配置2
     config1Panels.forEach(panel => panel.classList.remove('highlighted'));
     config2Panels.forEach(panel => panel.classList.add('highlighted'));
@@ -517,7 +535,7 @@ function updateProductDisplay() {
   }
   
   // 更新箭頭顯示
-  updateArrowDisplay(config1Product, config2Product);
+  updateArrowDisplay(displayConfig1, displayConfig2);
   
   // 更新比值 (較大值 ÷ 較小值)
   const ratioWrapper = configWrappers[2];
@@ -529,25 +547,17 @@ function updateProductDisplay() {
     ratioWrapper.appendChild(ratioDiv);
   }
   
-  const ratioValue = window.ComputeEngine && window.ComputeEngine.calculateRatioValue
-    ? window.ComputeEngine.calculateRatioValue(config1Product, config2Product)
-    : (function() {
-        const maxProduct = Math.max(config1Product, config2Product);
-        const minProduct = Math.min(config1Product, config2Product);
-        return minProduct === 0 ? '-' : (maxProduct / minProduct).toFixed(7);
-      })();
-  
-  if (ratioValue === '-') {
+  if (displayRatio === '-') {
     ratioDiv.textContent = '-';
   } else {
     // 分割小數點後2位(含)之前和之後的部分
-    const decimalIndex = ratioValue.indexOf('.');
-    const mainPart = ratioValue.substring(0, decimalIndex + 3); // 小數點前 + 小數點 + 2位
-    const remainingPart = ratioValue.substring(decimalIndex + 3);
+    const decimalIndex = displayRatio.indexOf('.');
+    const mainPart = displayRatio.substring(0, decimalIndex + 3); // 小數點前 + 小數點 + 2位
+    const remainingPart = displayRatio.substring(decimalIndex + 3);
     // 主要部分用亮綠色，剩餘部分保持原色
     ratioDiv.innerHTML = `<span style="color: #00ff00;">${mainPart}</span>${remainingPart}`;
   }
-  ratioDiv.style.fontSize = getAdaptiveFontSize(ratioValue) + 'px';
+  ratioDiv.style.fontSize = getAdaptiveFontSize(displayRatio) + 'px';
 }
 
 // 導出函數供外部使用
@@ -682,6 +692,7 @@ function initializeNewArchitecture() {
  * 從 DOM 中收集所有 stat-N-left 和 stat-N-result 的值
  * 用於快速訪問、狀態快照和調試
  * 同步完成後自動更新產品顯示和比值
+ * ✨ 新增：同步至 UserInputData 全局數據結構
  * 
  * @returns {Object} 包含 config1 和 config2 的對象
  *   config1: { 0: value, 1: value, ... }
@@ -702,6 +713,11 @@ function syncAllStatValues() {
       const index = parseInt(match[1]);
       const value = computeInputValue(element);
       allValues.config1[index] = value;
+      
+      // ✨ 同步至 UserInputData
+      if (window.UserInputData) {
+        window.UserInputData.setConfig1(index, value);
+      }
     }
   });
   
@@ -713,8 +729,21 @@ function syncAllStatValues() {
       const index = parseInt(match[1]);
       const value = computeInputValue(element);
       allValues.config2[index] = value;
+      
+      // ✨ 同步至 UserInputData
+      if (window.UserInputData) {
+        window.UserInputData.setConfig2(index, value);
+      }
     }
   });
+  
+  // ✨ 新增：同步特殊項目數據到 UserInputData
+  syncSpecialItemsToUserData();
+  
+  // ✨ 根據 UserInputData 更新 UI 顯示
+  if (window.syncUIFromUserData && typeof window.syncUIFromUserData === 'function') {
+    window.syncUIFromUserData();
+  }
   
   // 同步完成後，自動更新產品顯示和比值
   if (window.updateProductDisplay && typeof window.updateProductDisplay === 'function') {
@@ -724,6 +753,40 @@ function syncAllStatValues() {
   }
   
   return allValues;
+}
+
+/**
+ * ✨ 新增函數：同步特殊項目（致命一擊傷害、適應力）到 UserInputData
+ * 從 DOM 中提取這些複雜項目的數據，並更新到全局 UserInputData
+ */
+function syncSpecialItemsToUserData() {
+  if (!window.UserInputData) return;
+  
+  // 同步致命一擊傷害 (itemIndex = 2)
+  const criticalButton = document.querySelector('#stat-2-left');
+  if (criticalButton && criticalButton.dataset.value) {
+    const parts = criticalButton.dataset.value.split('|');
+    const panel = parseFloat(parts[0]) || 0;
+    const additive = parts[1] ? parts[1].split(',').map(v => parseFloat(v) || 0) : [];
+    const multiplicative = parts[2] ? parts[2].split(',').map(v => parseFloat(v) || 0) : [];
+    
+    window.UserInputData.setCriticalDamage(panel, additive, multiplicative);
+  }
+  
+  // 同步適應力 (itemIndex = 1)
+  const adaptButton = document.querySelector('#stat-1-left');
+  if (adaptButton && adaptButton.dataset.value) {
+    const parts = adaptButton.dataset.value.split('|');
+    const adaptData = {
+      panel: parseFloat(parts[0]) || 0,
+      gathering_place: parts[1] === '1',
+      adapt_potion: parts[2] === '1',
+      super_adapt: parseFloat(parts[3]) || 0,
+      preset: parts[4] || '95%'
+    };
+    
+    window.UserInputData.setAdaptability(adaptData);
+  }
 }
 
 /**
@@ -739,6 +802,48 @@ function getStatValue(itemIndex, configType = 'config1') {
   
   const element = document.querySelector(selector);
   return element ? computeInputValue(element) : 0;
+}
+
+/**
+ * 根據 UserInputData 更新所有 UI 元素的顯示
+ * 確保 input-button 和 inputbox 的顯示值都來自 UserInputData
+ */
+function syncUIFromUserData() {
+  if (!window.UserInputData) return;
+  
+  // 更新所有 config1 (left) 的按鈕和輸入框
+  for (let itemIndex in window.UserInputData.config1) {
+    itemIndex = parseInt(itemIndex);
+    const value = window.UserInputData.config1[itemIndex];
+    const element = document.querySelector(`#stat-${itemIndex}-left`);
+    
+    if (element) {
+      if (element.classList.contains('button-input')) {
+        // 按鈕輸入：更新 textContent
+        element.textContent = value === 0 ? '' : value;
+      } else {
+        // 普通輸入框：更新 value
+        element.value = value === 0 ? '' : value;
+      }
+    }
+  }
+  
+  // 更新所有 config2 (result) 的按鈕和輸入框
+  for (let itemIndex in window.UserInputData.config2) {
+    itemIndex = parseInt(itemIndex);
+    const value = window.UserInputData.config2[itemIndex];
+    const element = document.querySelector(`#stat-${itemIndex}-result`);
+    
+    if (element) {
+      if (element.classList.contains('button-input')) {
+        // 按鈕輸入：更新 textContent
+        element.textContent = value === 0 ? '' : value;
+      } else {
+        // 普通輸入框：更新 value
+        element.value = value === 0 ? '' : value;
+      }
+    }
+  }
 }
 
 /**
@@ -782,15 +887,163 @@ window.handleStatInputChange = handleStatInputChange;
 window.getStatSnapshot = getStatSnapshot;
 window.initializeNewArchitecture = initializeNewArchitecture;
 window.syncAllStatValues = syncAllStatValues;
+window.syncSpecialItemsToUserData = syncSpecialItemsToUserData;
+window.updateUserDataFromElement = updateUserDataFromElement;
+window.extractAdaptabilityData = extractAdaptabilityData;
+window.extractCriticalDamageData = extractCriticalDamageData;
+window.attachStatChangeListeners = attachStatChangeListeners;
 window.getStatValue = getStatValue;
 window.getStatValues = getStatValues;
 window.validateStatValues = validateStatValues;
+window.syncUIFromUserData = syncUIFromUserData;
+
+/**
+ * ✨ 新增：直接同步單個 stat 項到 UserInputData
+ * 當用戶改變任何輸入時，立即更新 UserInputData（不等待 syncAllStatValues）
+ * @param {Element} element - 改變的輸入元素
+ */
+function updateUserDataFromElement(element) {
+  if (!window.UserInputData || !element) return;
+  
+  let index, isConfig1, value;
+  
+  try {
+    // 判斷是 config1 還是 config2
+    let match;
+    isConfig1 = false;
+    
+    match = element.id.match(/stat-(\d+)-left/);
+    if (match) {
+      isConfig1 = true;
+    } else {
+      match = element.id.match(/stat-(\d+)-result/);
+      isConfig1 = false;
+    }
+    
+    if (!match) return;
+    
+    index = parseInt(match[1]);
+    value = computeInputValue(element);
+    
+    // 直接更新 UserInputData
+    if (isConfig1) {
+      window.UserInputData.setConfig1(index, value);
+      
+      // 特殊項目：同步複雜數據
+      if (index === 1) {
+        // 適應力
+        const adaptData = extractAdaptabilityData(element);
+        if (adaptData) window.UserInputData.setAdaptability(adaptData);
+      } else if (index === 2) {
+        // 致命一擊傷害
+        const criticalData = extractCriticalDamageData(element);
+        if (criticalData) window.UserInputData.setCriticalDamage(criticalData.panel, criticalData.additive, criticalData.multiplicative);
+      }
+    } else {
+      window.UserInputData.setConfig2(index, value);
+    }
+    
+    // ✨ 更新相應的 UI 元素
+    const elementId = element.id;
+    const updateElement = document.querySelector(`#${elementId}`);
+    if (updateElement) {
+      if (updateElement.classList.contains('button-input')) {
+        updateElement.textContent = value === 0 ? '' : value;
+      } else {
+        updateElement.value = value === 0 ? '' : value;
+      }
+    }
+  } finally {
+    // 輸出變動欄位和變動值
+    if (index !== undefined && value !== undefined) {
+      console.log(`📝 變動: stat-${index}-${isConfig1 ? 'left' : 'result'} = ${value}`);
+    }
+    // 輸出完整 DS
+    console.log(`📊 總 DS:`, window.UserInputData.getAllData());
+  }
+}
+
+/**
+ * 從適應力按鈕提取數據
+ */
+function extractAdaptabilityData(element) {
+  if (!element || !element.dataset.value) return null;
+  
+  const parts = element.dataset.value.split('|');
+  return {
+    panel: parseFloat(parts[0]) || 0,
+    gathering_place: parts[1] === '1',
+    adapt_potion: parts[2] === '1',
+    super_adapt: parseFloat(parts[3]) || 0,
+    preset: parts[4] || '95%'
+  };
+}
+
+/**
+ * 從致命一擊傷害按鈕提取數據
+ */
+function extractCriticalDamageData(element) {
+  if (!element || !element.dataset.value) return null;
+  
+  const parts = element.dataset.value.split('|');
+  return {
+    panel: parseFloat(parts[0]) || 0,
+    additive: parts[1] ? parts[1].split(',').map(v => parseFloat(v) || 0) : [],
+    multiplicative: parts[2] ? parts[2].split(',').map(v => parseFloat(v) || 0) : []
+  };
+}
+
+/**
+ * ✨ 新增：全局事件委托監聽
+ * 監聽所有 stat-N-left 和 stat-N-result 的變化，自動更新 UserInputData
+ * 只監聽 data-value 屬性變化（實際的數據改變）
+ */
+function attachStatChangeListeners() {
+  // ✨ 監聽所有 button-input 的 data-value 屬性變化
+  const buttons = document.querySelectorAll('[id^="stat-"][id$="-left"], [id^="stat-"][id$="-result"]');
+  buttons.forEach(button => {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'data-value') {
+          updateUserDataFromElement(button);
+        }
+      });
+    });
+    
+    observer.observe(button, { attributes: true, attributeFilter: ['data-value'] });
+  });
+  
+  console.log('✅ 監聽已啟用');
+}
 
 // 初始化
 function init() {
+  // 附加事件監聽器（用戶輸入時直接更新 UserInputData）
+  attachStatChangeListeners();
+  
   updateProductDisplay();
-  // 頁面加載完成後，同步初始值到全局快取
+  // 初始化時同步值到全局快取（不輸出）
   window.allStatValues = syncAllStatValues();
+  
+  // 初始化 UserInputData 的初始值
+  const leftElements = document.querySelectorAll('[id^="stat-"][id$="-left"]');
+  leftElements.forEach(element => {
+    const match = element.id.match(/stat-(\d+)-left/);
+    if (match) {
+      const index = parseInt(match[1]);
+      const value = computeInputValue(element);
+      if (window.UserInputData) {
+        window.UserInputData.setConfig1(index, value);
+      }
+    }
+  });
+  
+  // 初始化特殊項目
+  if (window.UserInputData) {
+    syncSpecialItemsToUserData();
+  }
+  
+  console.log('✅ 系統已初始化，監聽已啟用');
 }
 
 if (document.readyState === 'loading') {
