@@ -124,7 +124,7 @@ UserInputData = {
 
 ## 集成到計算邏輯
 
-在 `calc.js` 或其他計算文件中：
+在 `interface.js` 或其他計算文件中：
 
 ```javascript
 // 獲取當前用戶數據

@@ -3,6 +3,36 @@
  * 無副作用：僅進行計算，不修改輸入數據或DOM
  */
 
+// 統計項目列表及其索引對應
+const STAT_ITEMS = {
+  PHYSICAL_MAGIC_ATTACK: 0,        // 物/魔攻擊力
+  ADAPTABILITY: 1,                 // 適應力
+  CRITICAL_DAMAGE: 2,              // 致命一擊傷害
+  POLARIZATION: 3,                 // 兩極化
+  BOSS_DAMAGE: 4,                  // Boss 傷害
+  HP_THRESHOLD: 5,                 // 50%以上/以下
+  BELOW_100: 6,                    // 100%以下
+  BLEEDING: 7,                     // 流血
+  STRONG_SKILL_DAMAGE: 8,          // 強烈/超越技傷
+  ALL_SKILL_DAMAGE: 9,             // 所有技傷
+  OTHER: 10                        // 其他
+};
+
+// 統計項目名稱對應
+const STAT_NAMES = {
+  [STAT_ITEMS.PHYSICAL_MAGIC_ATTACK]: '物/魔攻擊力',
+  [STAT_ITEMS.ADAPTABILITY]: '適應力',
+  [STAT_ITEMS.CRITICAL_DAMAGE]: '致命一擊傷害',
+  [STAT_ITEMS.POLARIZATION]: '兩極化',
+  [STAT_ITEMS.BOSS_DAMAGE]: 'Boss 傷害',
+  [STAT_ITEMS.HP_THRESHOLD]: '50%以上/以下',
+  [STAT_ITEMS.BELOW_100]: '100%以下',
+  [STAT_ITEMS.BLEEDING]: '流血',
+  [STAT_ITEMS.STRONG_SKILL_DAMAGE]: '強烈/超越技傷',
+  [STAT_ITEMS.ALL_SKILL_DAMAGE]: '所有技傷',
+  [STAT_ITEMS.OTHER]: '其他'
+};
+
 // 浮點數精度處理函數 - 避免 5.3 顯示成 5.3000000002 或 5.29999999
 const utilsRoundNumber = (num, decimals = 10) => {
   if (!Number.isFinite(num)) return num;
@@ -16,30 +46,29 @@ const utilsRoundNumber = (num, decimals = 10) => {
 
 const ComputeEngine = {
   /**
-   * 計算配置1的乘積
-   * 根據所有項目的配置1值，計算乘積
-   * 特殊處理：適應力需要先除以100再加1
-   * 
-   * @param {Object} store - StatStore 狀態管理器
-   * @param {Object} STAT_ITEMS - 統計項目常數 (可選)
-   * @param {Function} calculateAdaptabilityFn - 計算適應力的函數 (可選)
-   * @returns {number} 配置1的乘積
+   * 內部共通計算乘積函數
+   * @param {Map} valuesMap - config1Values 或 config2Values
+   * @param {Set} enabledItems - 已啟用的項目集合
+   * @returns {number} 乘積結果
+   * @private
    */
-  calculateConfig1Product(store, STAT_ITEMS = null, calculateAdaptabilityFn = null) {
-    if (!store || store.config1Values.size === 0) {
+  _calculateProductFromValues(valuesMap, enabledItems) {
+    if (!valuesMap || valuesMap.size === 0) {
       return 1;
     }
     
     let product = 1;
-    const ADAPTABILITY_INDEX = 1; // 默認適應力索引
     
-    store.config1Values.forEach((value, itemIndex) => {
+    valuesMap.forEach((value, itemIndex) => {
+      // 檢查項目是否被啟用，若未啟用則跳過
+      if (enabledItems && !enabledItems.has(itemIndex)) {
+        return;
+      }
+      
       let effectiveValue;
       
-      // 特殊處理適應力（如果提供了常數對象，使用常數；否則使用默認索引）
-      const isAdaptability = STAT_ITEMS 
-        ? itemIndex === STAT_ITEMS.ADAPTABILITY 
-        : itemIndex === ADAPTABILITY_INDEX;
+      // 特殊處理適應力
+      const isAdaptability = itemIndex === STAT_ITEMS.ADAPTABILITY;
       
       if (isAdaptability) {
         // 适应力特殊处理：先除以100再加1
@@ -57,45 +86,28 @@ const ComputeEngine = {
   },
   
   /**
-   * 計算配置2的乘積
-   * 根據所有項目的配置2值，計算乘積
+   * 通用乘積計算函數
+   * 根據配置類型計算乘積
    * 特殊處理：適應力需要先除以100再加1
+   * 只計算已啟用的項目
    * 
    * @param {Object} store - StatStore 狀態管理器
-   * @param {Object} STAT_ITEMS - 統計項目常數 (可選)
-   * @param {Function} calculateAdaptabilityFn - 計算適應力的函數 (可選)
-   * @returns {number} 配置2的乘積
+   * @param {string} configType - 配置類型 ('config1' | 'config2')
+   * @returns {number} 乘積結果
    */
-  calculateConfig2Product(store, STAT_ITEMS = null, calculateAdaptabilityFn = null) {
-    if (!store || store.config2Values.size === 0) {
+  calculateProduct(store, configType) {
+    if (!store) return 1;
+    
+    const valuesMap = configType === 'config1' ? store.config1Values : store.config2Values;
+    
+    if (!valuesMap || valuesMap.size === 0) {
       return 1;
     }
     
-    let product = 1;
-    const ADAPTABILITY_INDEX = 1; // 默認適應力索引
-    
-    store.config2Values.forEach((value, itemIndex) => {
-      let effectiveValue;
-      
-      // 特殊處理適應力（如果提供了常數對象，使用常數；否則使用默認索引）
-      const isAdaptability = STAT_ITEMS 
-        ? itemIndex === STAT_ITEMS.ADAPTABILITY 
-        : itemIndex === ADAPTABILITY_INDEX;
-      
-      if (isAdaptability) {
-        // 适应力特殊处理：先除以100再加1
-        const adaptValue = value || 0;
-        effectiveValue = adaptValue === 0 ? 1 : (adaptValue / 100 + 1);
-      } else {
-        // 其他项目：0或空时以1计算
-        effectiveValue = (value === 0 || value === null || value === undefined) ? 1 : value;
-      }
-      
-      product *= effectiveValue;
-    });
-    
-    return utilsRoundNumber(product, 5);
+    return this._calculateProductFromValues(valuesMap, store.enabledItems);
   },
+  
+
   
   /**
    * 計算比值：(較大值 ÷ 較小值)
@@ -121,19 +133,68 @@ const ComputeEngine = {
    * 一次調用返回所有派生值：config1Product、config2Product、ratioValue
    * 
    * @param {Object} store - StatStore 狀態管理器
-   * @param {Object} STAT_ITEMS - 統計項目常數 (可選)
-   * @param {Function} calculateAdaptabilityFn - 計算適應力的函數 (可選)
    * @returns {Object} { config1Product, config2Product, ratioValue }
    */
-  getComputedState(store, STAT_ITEMS = null, calculateAdaptabilityFn = null) {
-    const config1Product = this.calculateConfig1Product(store, STAT_ITEMS, calculateAdaptabilityFn);
-    const config2Product = this.calculateConfig2Product(store, STAT_ITEMS, calculateAdaptabilityFn);
+  getComputedState(store) {
+    const config1Product = this.calculateProduct(store, 'config1');
+    const config2Product = this.calculateProduct(store, 'config2');
     const ratioValue = this.calculateRatioValue(config1Product, config2Product);
     
     return {
       config1Product,
       config2Product,
       ratioValue,
+      timestamp: Date.now()
+    };
+  },
+
+  /**
+   * 統一同步函數 - 基於用戶輸入計算所有派生值
+   * 一次調用完成：
+   * 1. 計算每個項目的三向綁定（變動量 = config2 - config1）
+   * 2. 計算 config1Product 和 config2Product
+   * 3. 計算比值 (ratio)
+   * 
+   * @param {Object} store - StatStore 狀態管理器
+   * @returns {Object} 完整計算結果
+   */
+  normalSync(store) {
+    if (!store) {
+      return {
+        config1Product: 1,
+        config2Product: 1,
+        ratioValue: '-',
+        itemDeltas: {},  // 每個項目的變動量
+        comparison: 'equal'
+      };
+    }
+
+    // Step 1: 計算每個項目的三向綁定（變動量）
+    const itemDeltas = {};
+    const expectedIndices = Object.values(STAT_ITEMS);
+    
+    expectedIndices.forEach(index => {
+      const config1 = store.getConfig1Value(index) || 0;
+      const config2 = store.getConfig2Value(index) || 0;
+      itemDeltas[index] = utilsRoundNumber(config2 - config1);
+    });
+
+    // Step 2: 計算 product 和 ratio
+    const config1Product = this.calculateProduct(store, 'config1');
+    const config2Product = this.calculateProduct(store, 'config2');
+    const ratioValue = this.calculateRatioValue(config1Product, config2Product);
+
+    // Step 3: 比較配置大小關係
+    const comparison = config1Product > config2Product 
+      ? 'greater' 
+      : (config1Product < config2Product ? 'less' : 'equal');
+
+    return {
+      config1Product,
+      config2Product,
+      ratioValue,
+      itemDeltas,      // 所有項目的變動量
+      comparison,      // 'greater' | 'less' | 'equal'
       timestamp: Date.now()
     };
   },
@@ -189,6 +250,55 @@ const ComputeEngine = {
   },
   
   /**
+   * 計算適應力值 - 純計算函數（用於按鈕顯示）
+   * @param {Object} values - 包含 panel, gathering_place, adapt_potion, super_adapt 的對象
+   * @returns {number} 計算結果
+   * 公式: min(panel + gathering_place_buff + adapt_potion_buff, 60) + super_adapt
+   * 輸入時允許超過 60，但計算時限制在 60
+   */
+  calculateAdaptabilityValue(values) {
+    let panelValue = parseFloat(values.panel) || 0;
+    // 允許輸入超過 60，不在此限制
+    
+    const gatheringPlace = values.gathering_place ? 2 : 0;  // 集合地 +2
+    const adaptPotion = values.adapt_potion ? 3 : 0;        // 適應靈藥 +3
+    const superAdapt = parseFloat(values.super_adapt) || 0;
+    
+    // 計算: min(panel + buff, 60) + super_adapt
+    const buffedPanel = Math.min(panelValue + gatheringPlace + adaptPotion, 60);
+    return buffedPanel + superAdapt;
+  },
+  
+  /**
+   * 計算致命一擊傷害值 - 純計算函數（用於按鈕顯示）
+   * @param {Object} values - 包含 panel, additive_damages, multiplicative_damages 的對象
+   * @returns {number} 計算結果
+   * 公式: panel + 150 × (∏[(乘算+100)/100] - 1) + 加算總和
+   */
+  calculateCriticalDamageValue(values) {
+    const panel = parseFloat(values.panel) || 0;
+    
+    // 計算加算爆傷總和
+    let additiveSum = 0;
+    if (values.additive_damages && Array.isArray(values.additive_damages)) {
+      additiveSum = values.additive_damages.reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
+    }
+    
+    // 計算乘算爆傷總乘積: ∏[(m + 100) / 100]
+    let multiplicativeProduct = 1;
+    if (values.multiplicative_damages && Array.isArray(values.multiplicative_damages)) {
+      multiplicativeProduct = values.multiplicative_damages
+        .map(v => parseFloat(v) || 0)
+        .filter(v => v !== 0)
+        .reduce((prod, v) => prod * ((v + 100) / 100), 1);
+    }
+    
+    // 新公式: 面板 + 150 * (乘算總乘積 - 1) + 加算總和
+    const result = panel + 150 * (multiplicativeProduct - 1) + additiveSum;
+    return utilsRoundNumber(result);
+  },
+  
+  /**
    * 根據數字長度動態計算字體大小
    * @param {string|number} numberValue - 數字值
    * @returns {number} 字體大小（像素）
@@ -201,13 +311,58 @@ const ComputeEngine = {
     if (length <= 10) return 24;
     if (length <= 12) return 14;
     return 12;
+  },
+
+  /**
+   * 解析輸入值字符串（根據不同統計項目）
+   * 純函數 - 不需要 DOM 訪問
+   * @param {string} valueString - 值字符串或 "panel|..." 格式
+   * @param {number} itemIndex - 統計項目索引
+   * @returns {number} 計算後的最終數值
+   */
+  parseInputValueByString(valueString, itemIndex = -1) {
+    if (!valueString) return 0;
+    
+    // 解析 JSON 格式
+    let values = {};
+    if (valueString.startsWith('{')) {
+      try {
+        values = JSON.parse(valueString);
+      } catch (e) {
+        return 0;
+      }
+    } else {
+      // 普通數字格式
+      return parseFloat(valueString) || 0;
+    }
+    
+    // 根據 itemIndex 調用相應的計算函數
+    if (itemIndex === 1) {
+      // 適應力
+      return this.calculateAdaptabilityValue(values);
+    } else if (itemIndex === 2) {
+      // 致命一擊傷害
+      return this.calculateCriticalDamageValue(values);
+    } else {
+      // 其他項目返回 panel 值或直接返回值
+      return values.panel || values.value || parseFloat(values) || 0;
+    }
   }
 };
 
-// 導出供外部使用
+// 導出常數和引擎
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = ComputeEngine;
+  module.exports = { ComputeEngine, STAT_ITEMS, STAT_NAMES, utilsRoundNumber };
 }
+
 if (typeof window !== 'undefined') {
-  window.ComputeEngine = ComputeEngine;} else if (typeof global !== 'undefined') {
-  global.ComputeEngine = ComputeEngine;}
+  window.ComputeEngine = ComputeEngine;
+  window.STAT_ITEMS = STAT_ITEMS;
+  window.STAT_NAMES = STAT_NAMES;
+  window.roundNumber = utilsRoundNumber;  // 統一的浮點數精度處理
+} else if (typeof global !== 'undefined') {
+  global.ComputeEngine = ComputeEngine;
+  global.STAT_ITEMS = STAT_ITEMS;
+  global.STAT_NAMES = STAT_NAMES;
+  global.roundNumber = utilsRoundNumber;
+}

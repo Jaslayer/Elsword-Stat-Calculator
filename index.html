@@ -65,19 +65,14 @@
       </section>
     </main>
     <script>
-      // 浮點數精度處理函數 - 避免 5.3 顯示成 5.3000000002 或 5.29999999
-      const roundNumber = (num, decimals = 5) => {
-        if (!Number.isFinite(num)) return num;
-        // 用字符串求提保有意義的小數位數
-        const multiplier = Math.pow(10, decimals);
-        const rounded = Math.round(num * multiplier) / multiplier;
-        // 如果結果是整數，返回整數；否則返回精確的浮點數
-        return parseFloat(rounded.toFixed(decimals).replace(/\.?0+$/, ''));
-      };
+      // 清除所有 localStorage 中的舊數據
+      // localStorage.clear();
 
+      // 浮點數精度處理函數已由 compute.js 導出（window.roundNumber）
+      
       /**
        * 統一接口：所有 input/click/spinner 事件都通過此函數處理
-       * 流程: 更新 element 值 → 調用 calc.js 更新 UserInputData → 回到 index.html 更新顯示
+       * 流程: 更新 element 值 → 調用 interface.js 更新 UserInputData → 回到 index.html 更新顯示
        * @param {Element} element - 改變的輸入元素
        * @param {number} newValue - 新值（可選，如果不提供則從 element 讀取）
        */
@@ -97,18 +92,8 @@
         const setInputValue = (el, val) => {
           const precisedValue = roundNumber(val);
           if (el.classList.contains('button-input')) {
-            if (el.dataset.value && el.dataset.value.includes('|')) {
-              const parts = el.dataset.value.split('|');
-              if (parts.length >= 3) {
-                el.dataset.value = `${precisedValue}|${parts[1]}|${parts[2]}`;
-              } else if (parts.length === 2) {
-                el.dataset.value = `${precisedValue}|${parts[1]}`;
-              } else {
-                el.dataset.value = precisedValue;
-              }
-            } else {
-              el.dataset.value = precisedValue;
-            }
+            // 使用 JSON 格式存储 { value: precisedValue }
+            el.dataset.value = JSON.stringify({ value: precisedValue });
             const displayValue = getInputValue(el);
             el.textContent = displayValue === 0 ? '' : displayValue;
           } else {
@@ -120,24 +105,35 @@
           setInputValue(element, newValue);
         }
 
-        // Step 2: 調用 calc.js 的函數更新 UserInputData
+        // Step 2: 調用 interface.js 的函數更新 UserInputData
         if (window.updateUserDataFromElement && typeof window.updateUserDataFromElement === 'function') {
           window.updateUserDataFromElement(element);
         }
 
         // Step 3: 回到 index.html 更新顯示
-        // 觸發三向綁定更新
-        if (panelDiv.triggerThreeWayBinding && element.classList.contains('button-input')) {
-          panelDiv.triggerThreeWayBinding(element);
-        } else if (!element.classList.contains('button-input')) {
-          // 常規輸入框也需要更新三向綁定
-          const leftInput = panelDiv.querySelector('.left-input');
-          const resultInput = panelDiv.querySelector('.result-input');
-          const middleInput = panelDiv.querySelector('.middle-input');
-          if (leftInput && resultInput && middleInput) {
-            const leftVal = getInputValue(leftInput);
-            const resultVal = getInputValue(resultInput);
-            middleInput.value = roundNumber(resultVal - leftVal);
+        // 統一更新三向綁定：從 DS 取值（由 compute.js 計算）
+        const middleInput = panelDiv.querySelector('.middle-input');
+        const middleIndicator = panelDiv.querySelector('.middle-indicator');
+        
+        if (middleInput && middleIndicator && window.ComputeEngine && window.StatStore) {
+          const statIndex = parseInt(panelDiv.dataset.index);
+          
+          // 從 DS 計算結果中取得 itemDeltas
+          const syncResult = window.ComputeEngine.normalSync(window.StatStore);
+          if (syncResult && syncResult.itemDeltas && syncResult.itemDeltas[statIndex] !== undefined) {
+            const deltaValue = syncResult.itemDeltas[statIndex];
+            middleInput.value = deltaValue === 0 ? '' : deltaValue;
+            
+            // 更新中間指示器
+            const middleValue = parseFloat(middleInput.value) || 0;
+            middleIndicator.classList.remove('positive', 'negative', 'zero');
+            if (middleValue > 0) {
+              middleIndicator.classList.add('positive');
+            } else if (middleValue < 0) {
+              middleIndicator.classList.add('negative');
+            } else {
+              middleIndicator.classList.add('zero');
+            }
           }
         }
 
@@ -223,9 +219,6 @@
         });
       });
 
-      // =============== 常量定義 ===============
-      const MAX_ADAPTABILITY_PANEL = 60; // 適應力面板最大值
-
       // 增刪 Input Panel
       function updateInputPanel() {
         const calcPanel = document.getElementById('calcPanel');
@@ -246,6 +239,19 @@
         // 判斷是要添加還是刪除
         const toAdd = shouldExistIndices.filter(index => !currentIndices.includes(index));
         const toRemove = currentIndices.filter(index => !shouldExistIndices.includes(index));
+        
+        // 更新 StatStore 的 enabledItems
+        toAdd.forEach(index => {
+          if (window.StatStore) {
+            window.StatStore.addEnabledItem(index);
+          }
+        });
+        
+        toRemove.forEach(index => {
+          if (window.StatStore) {
+            window.StatStore.removeEnabledItem(index);
+          }
+        });
         
         if (toRemove.length > 0) {
           // 刪除模式：先縮小 calc-panel，再刪除 panels
@@ -401,6 +407,16 @@
         });
       }
 
+      // =============== 各 stat 項目的初始值配置 ===============
+      const INITIAL_VALUES = {
+        0: { value: 0 },                                                          // 物/魔攻擊力
+        1: { panel: 0, gathering_place: false, adapt_potion: false, super_adapt: 0, preset: '95' }, // 適應力
+        2: { panel: 0, additive_damages: [0], multiplicative_damages: [0] },     // 致命一擊傷害
+        4: { value: 0 },                                                          // Boss 傷害
+        5: { value: 0 },                                                          // 50%以上/以下
+        10: { value: 0 }                                                          // 其他
+      };
+
       // 為每個被選中的 stat-item 創建一個 input-panel
       function createInputPanel(statItem, index, container, isNewItem = false) {
         const panelDiv = document.createElement('div');
@@ -414,6 +430,10 @@
         const buttonInputIndices = [0, 1, 2, 4, 5, 10];
         const useButtonInput = buttonInputIndices.includes(index);
         
+        // 獲取初始值
+        const initialValue = INITIAL_VALUES[index] || { value: 0 };
+        const initialValueJSON = JSON.stringify(initialValue);
+        
         if (useButtonInput) {
           // 按鈕型輸入框
           panelDiv.innerHTML = `
@@ -422,7 +442,7 @@
               <div class="panel-label">${statItem.textContent}</div>
               <div class="config-wrapper">
                 <label for="stat-${index}-left" class="sr-only">配置 1</label>
-                <button class="button-input left-input" id="stat-${index}-left" data-index="${index}" data-type="left" data-value="${index === 1 ? '0|0|0|0|95' : (index === 2 ? '0||' : '0')}" data-min="0"></button>
+                <button class="button-input left-input" id="stat-${index}-left" data-index="${index}" data-type="left" data-value='${initialValueJSON}' data-min="0"></button>
                 <div class="input-spinner">
                   <button class="spinner-btn up" data-type="left" data-index="${index}">∧</button>
                   <button class="spinner-btn down" data-type="left" data-index="${index}">∨</button>
@@ -430,7 +450,7 @@
               </div>
               <div class="config-wrapper">
                 <label for="stat-${index}-result" class="sr-only">配置 2</label>
-                <button class="button-input result-input" id="stat-${index}-result" data-index="${index}" data-type="result" data-value="${index === 1 ? '0|0|0|0|95' : (index === 2 ? '0||' : '0')}" data-min="0"></button>
+                <button class="button-input result-input" id="stat-${index}-result" data-index="${index}" data-type="result" data-value='${initialValueJSON}' data-min="0"></button>
                 <div class="input-spinner">
                   <button class="spinner-btn up" data-type="result" data-index="${index}">∧</button>
                   <button class="spinner-btn down" data-type="result" data-index="${index}">∨</button>
@@ -509,31 +529,18 @@
         const resultInput = panelDiv.querySelector('.result-input');
         const middleIndicator = panelDiv.querySelector('.middle-indicator');
         
-        // 獲取輸入值的輔助函數 - 直接調用 calc.js 的 computeInputValue（已統一集中計算邏輯）
+        // 獲取輸入值的輔助函數 - 直接調用 interface.js 的 computeInputValue（已統一集中計算邏輯）
         const getInputValue = (element) => {
-          const value = window.computeInputValue ? window.computeInputValue(element) : 0;
-          return roundNumber(value);
+          return window.computeInputValue ? window.computeInputValue(element) : 0;
         };
         
-        // 設置 button-input 或 inputbox - 支持 "panel|..." 格式（限制邏輯由 calc.js 統一處理）
+        // 設置 button-input 或 inputbox - 統一使用 JSON 格式
         const setInputValue = (element, value) => {
           const precisedValue = roundNumber(value);
           if (element.classList.contains('button-input')) {
-            // 對於按鈕型輸入（含有 | 符號），保留其他部分，只更新 panel 值
-            if (element.dataset.value && element.dataset.value.includes('|')) {
-              const parts = element.dataset.value.split('|');
-              // 直接更新 panel 值，限制邏輯由 computeInputValue() 和 calculateAdaptabilityValue() 統一處理
-              if (parts.length >= 3) {
-                element.dataset.value = `${precisedValue}|${parts[1]}|${parts[2]}`;
-              } else if (parts.length === 2) {
-                element.dataset.value = `${precisedValue}|${parts[1]}`;
-              } else {
-                element.dataset.value = precisedValue;
-              }
-            } else {
-              element.dataset.value = precisedValue;
-            }
-            // 重新計算顯示值，調用 getInputValue 以確保正確的計算
+            // 使用 JSON 格式存储 { value: precisedValue }
+            element.dataset.value = JSON.stringify({ value: precisedValue });
+            // 重新計算顯示值
             const displayValue = getInputValue(element);
             element.textContent = displayValue === 0 ? '' : displayValue;
           } else {
@@ -543,7 +550,7 @@
         
         // 更新中間指示器
         const updateMiddleIndicator = () => {
-          const middleValue = roundNumber(parseFloat(middleInput.value) || 0);
+          const middleValue = parseFloat(middleInput.value) || 0;
           middleIndicator.classList.remove('positive', 'negative', 'zero');
           middleIndicator.textContent = '▲';
           if (middleValue > 0) {
@@ -555,32 +562,12 @@
           }
         };
         
-        // 觸發三向綁定更新的函數
-        const triggerThreeWayBinding = (changedInput) => {
-          const leftValue = getInputValue(leftInput);
-          const resultValue = getInputValue(resultInput);
-          
-          const newMiddle = roundNumber(resultValue - leftValue);
-          middleInput.value = newMiddle;
-          
-          updateMiddleIndicator();
-          
-          // 立即触发按钮的 change 事件，使计算系统更新显示
-          resultInput.dispatchEvent(new Event('change', { bubbles: true }));
-          
-          // 更新乘積顯示
-          if (window.updateProductDisplay) {
-            window.updateProductDisplay();
-          }
-        };
-        
         // 為按鈕型輸入框添加事件處理
         if (useButtonInput) {
           const leftBtn = panelDiv.querySelector('.left-input');
           const resultBtn = panelDiv.querySelector('.result-input');
           
           // 將三向綁定函數存儲在 panelDiv 上，供對話框使用
-          panelDiv.triggerThreeWayBinding = triggerThreeWayBinding;
           panelDiv.getInputValue = getInputValue;
           panelDiv.setInputValue = setInputValue;
           panelDiv.leftInput = leftInput;
@@ -652,784 +639,6 @@
         // 初始化指示器
         updateMiddleIndicator();
       }
-      
-      // =============== 通用對話框配置工廠函數 ===============
-      // 為簡單的數字項目生成統一配置
-      function createSimpleNumberConfig(statIndex, statName) {
-        return {
-          type: 'simple-number',
-          dialogId: `stat-dialog-${statIndex}`,
-          fields: [
-            {
-              name: 'value',
-              type: 'number',
-              label: statName,
-              className: 'stat-input-field',
-              minValue: 0
-            }
-          ],
-          separator: '',
-          displayField: 'value',
-          parse: (value) => ({
-            value: parseFloat(value) || 0
-          }),
-          serialize: (values) => String(values.value),
-          getDisplayValue: (values) => String(values.value)
-        };
-      }
-
-      // =============== 特殊對話框配置 (可擴展框架) ===============
-      const SPECIAL_DIALOGS = {
-        // 0: 物/魔攻擊力
-        0: createSimpleNumberConfig(0, '物/魔攻擊力'),
-        
-        1: { // 適應力 (Adaptability) - 特殊多字段配置
-          type: 'multi-field',
-          dialogId: 'adaptabilityInputDialog',
-          fields: [
-            {
-              name: 'panel',
-              type: 'number',
-              label: '面板(最大60)',
-              className: 'adaptability-panel-input',
-              minValue: 0,
-              maxValue: MAX_ADAPTABILITY_PANEL // 最大60
-            },
-            {
-              name: 'gathering_place',
-              type: 'checkbox',
-              label: '集合地 Buff (2%)',
-              className: 'adaptability-gathering-place',
-              defaultValue: false
-            },
-            {
-              name: 'adapt_potion',
-              type: 'checkbox',
-              label: '適應靈藥(3%)',
-              className: 'adaptability-potion',
-              defaultValue: false
-            },
-            {
-              name: 'super_adapt',
-              type: 'number',
-              label: '超適應力',
-              className: 'adaptability-super-input',
-              minValue: 0
-            },
-            {
-              name: 'preset',
-              type: 'select',
-              label: '環境 Debuff',
-              className: 'adaptability-select',
-              options: [
-                { value: '0', label: '0%' },
-                { value: '50', label: '50% (12CG)' },
-                { value: '90', label: '90% (18CG)' },
-                { value: '95', label: '95% (20、21、高熵)' }
-              ],
-              defaultValue: '95'
-            }
-          ],
-          separator: '|',
-          displayField: 'panel', // 顯示在按鈕上的字段
-          parse: (value) => {
-            const parts = value ? value.split('|') : [];
-            return {
-              panel: parseFloat(parts[0]) || 0,
-              gathering_place: parts[1] === 'true' || parts[1] === '1',
-              adapt_potion: parts[2] === 'true' || parts[2] === '1',
-              super_adapt: parseFloat(parts[3]) || 0,
-              preset: parts[4] || '95'
-            };
-          },
-          serialize: (values) => `${values.panel}|${values.gathering_place ? '1' : '0'}|${values.adapt_potion ? '1' : '0'}|${values.super_adapt}|${values.preset}`,
-          getDisplayValue: (values) => {
-            // 調用 calc.js 中的計算函數
-            return calculateAdaptabilityValue(values).toString();
-          }
-        },
-        
-        2: { // 致命一擊傷害 (Critical Damage) - 多字段配置（支持動態加算/乘算）
-          type: 'critical-damage',
-          dialogId: 'criticalDamageInputDialog',
-          fields: [
-            {
-              name: 'panel',
-              type: 'number',
-              label: '面板',
-              className: 'critical-damage-panel-input',
-              minValue: 0
-            }
-          ],
-          separator: '|',
-          displayField: 'panel', // 顯示在按鈕上的字段
-          parse: (value) => {
-            const parts = value ? value.split('|') : [];
-            const panel = parseFloat(parts[0]) || 0;
-            // 解析加算爆傷 (CSV 格式)
-            const additiveDamages = parts[1] ? parts[1].split(',').map(v => {
-              const num = parseFloat(v);
-              return Number.isNaN(num) ? 0 : num;
-            }).filter(v => v !== 0 || parts[1].includes('0')) : [];
-            // 解析乘算爆傷 (CSV 格式)
-            const multiplicativeDamages = parts[2] ? parts[2].split(',').map(v => {
-              const num = parseFloat(v);
-              return Number.isNaN(num) ? 1 : num;
-            }).filter(v => v !== 0 && !Number.isNaN(v)) : [];
-            
-            return {
-              panel,
-              additive_damages: additiveDamages.length > 0 ? additiveDamages : [0],
-              multiplicative_damages: multiplicativeDamages.length > 0 ? multiplicativeDamages : [0]
-            };
-          },
-          serialize: (values) => {
-            const additivesStr = (values.additive_damages || [0]).filter(v => v !== undefined).join(',');
-            const multiplicativesStr = (values.multiplicative_damages || [0]).filter(v => v !== undefined).join(',');
-            return `${values.panel}|${additivesStr}|${multiplicativesStr}`;
-          },
-          getDisplayValue: (values) => {
-            // 使用 calc.js 中的獨立計算函數
-            return (window.calculateCriticalDamageValue ? window.calculateCriticalDamageValue(values) : 0).toString();
-          }
-        },
-        
-        // 4: Boss 傷害
-        4: createSimpleNumberConfig(4, 'Boss 傷害'),
-        
-        // 5: 50%以上/以下
-        5: createSimpleNumberConfig(5, '50%以上/以下'),
-        
-        // 10: 其他
-        10: createSimpleNumberConfig(10, '其他')
-      };
-
-      // =============== 致命一擊傷害輔助函數 ===============
-      
-      // 對話框內 spinner 改值（實時改變輸入框的值）
-      function handleDialogSpinnerChange(element, field, increment, handleInputChange) {
-        const currentValue = parseFloat(element.value) || 0;
-        const minValue = field.minValue !== undefined ? field.minValue : Number.NEGATIVE_INFINITY;
-        const maxValue = field.maxValue !== undefined ? field.maxValue : Number.POSITIVE_INFINITY;
-        let newValue = currentValue + increment;
-        // 限制在 minValue 和 maxValue 之間
-        newValue = Math.max(minValue, Math.min(maxValue, newValue));
-        element.value = newValue;
-        element.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-      
-      // 生成加算爆傷行 HTML
-      function generateAdditivesHTML(currentValues) {
-        let html = '';
-        currentValues.additive_damages.forEach((value, addIndex) => {
-          if (value === undefined) return;
-          html += `
-            <div class="dialog-dynamic-row" data-add-index="${addIndex}">
-              <input type="number" class="dialog-input dialog-additive-input" id="dialog-additive-${addIndex}" data-index="${addIndex}" value="${value || ''}" placeholder="" style="flex: 1;" />
-              <select class="dialog-preset-select dialog-additive-preset" id="dialog-additive-preset-${addIndex}" data-index="${addIndex}" style="flex-shrink: 0; width: 200px;">
-                <option value="custom" selected>自訂</option>
-              </select>
-              <button class="dialog-delete-btn" type="button" data-index="${addIndex}" aria-label="刪除">−</button>
-            </div>
-          `;
-        });
-        return html;
-      }
-      
-      // 生成乘算爆傷行 HTML
-      function generateMultiplicativesHTML(currentValues, presets) {
-        let html = '';
-        currentValues.multiplicative_damages.forEach((value, mulIndex) => {
-          if (value === undefined) return;
-          const presetOptions = presets.map(preset => 
-            `<option value="${preset.value}" ${Math.abs(preset.value - value) < 0.01 ? 'selected' : ''}>${preset.label}</option>`
-          ).join('');
-          html += `
-            <div class="dialog-dynamic-row" data-mul-index="${mulIndex}">
-              <input type="number" class="dialog-input dialog-multiplicative-input" id="dialog-multiplicative-${mulIndex}" data-index="${mulIndex}" value="${value || ''}" placeholder="" style="flex: 1;" />
-              <select class="dialog-preset-select dialog-multiplicative-preset" id="dialog-multiplicative-preset-${mulIndex}" data-index="${mulIndex}" style="flex-shrink: 0; width: 200px;">
-                <option value="custom">自訂</option>${presetOptions}
-              </select>
-              <button class="dialog-delete-btn" type="button" data-index="${mulIndex}" aria-label="刪除">−</button>
-            </div>
-          `;
-        });
-        return html;
-      }
-      
-      // 綁定單行事件
-      function bindSingleRowEvents(row, inputSelector, handleChange) {
-        const input = row.querySelector(inputSelector);
-        const presetSelect = row.querySelector('.dialog-preset-select');
-        const deleteBtn = row.querySelector('.dialog-delete-btn');
-        
-        input.addEventListener('input', handleChange);
-        input.addEventListener('change', handleChange);
-        presetSelect.addEventListener('change', (e) => {
-          if (e.target.value !== 'custom') {
-            input.value = e.target.value;
-          }
-          handleChange();
-        });
-        deleteBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          row.remove();
-          handleChange();
-        });
-      }
-      
-      // 綁定容器中所有行的事件
-      function bindDamageRowEvents(container, inputSelector, handleChange) {
-        const rows = container.querySelectorAll('.dialog-dynamic-row');
-        rows.forEach(row => {
-          if (row.dataset.eventsBound) return;
-          bindSingleRowEvents(row, inputSelector, handleChange);
-          row.dataset.eventsBound = 'true';
-        });
-      }
-      
-      // 生成對話框 HTML 結構
-      function generateCriticalDamageDialogHTML(index, currentValues, additivesHTML, multiplicativesHTML) {
-        const panelInputId = `dialog-panel-${index}`;
-        return `
-          <div class="detailed-dialog">
-            <div class="dual-input-container" style="display: flex; flex-direction: column; gap: 12px;">
-              <div class="dialog-input-group">
-                <label class="dialog-input-label" for="${panelInputId}">面板</label>
-                <div style="display: flex; gap: 6px; align-items: stretch;">
-                  <input type="number" id="${panelInputId}" class="dialog-input dialog-panel-input" placeholder="" style="flex: 1;" />
-                  <div style="display: flex; flex-direction: column; gap: 0; flex-shrink: 0;">
-                    <button class="dialog-spinner-btn dialog-panel-up" type="button" aria-label="增加">
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M7 14l5-5 5 5z"/></svg>
-                    </button>
-                    <button class="dialog-spinner-btn dialog-panel-down" type="button" aria-label="減少">
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              
-              <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px;">
-                <div class="dialog-input-label">加算爆傷</div>
-                <div id="additive-damages-container" style="display: flex; flex-direction: column; gap: 6px; margin-top: 6px;">
-                  ${additivesHTML}
-                </div>
-                <button class="dialog-add-row-btn" id="add-additive-btn" type="button" style="margin-top: 6px; width: 100%; padding: 4px;">+ 加算</button>
-              </div>
-              
-              <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px;">
-                <div class="dialog-input-label">乘算爆傷</div>
-                <div id="multiplicative-damages-container" style="display: flex; flex-direction: column; gap: 6px; margin-top: 6px;">
-                  ${multiplicativesHTML}
-                </div>
-                <button class="dialog-add-row-btn" id="add-multiplicative-btn" type="button" style="margin-top: 6px; width: 100%; padding: 4px;">+ 乘算</button>
-              </div>
-            </div>
-          </div>
-        `;
-      }
-      
-      // 設置對話框位置和初始狀態
-      function setupDialogPosition(dialog, button, panelDiv) {
-        const inputPanelRect = panelDiv.getBoundingClientRect();
-        const calcPanel = document.getElementById('calcPanel');
-        const calcPanelRect = calcPanel.getBoundingClientRect();
-        
-        const topPos = inputPanelRect.top - calcPanelRect.top;
-        const leftPos = calcPanel.offsetWidth * 0.62;
-        
-        dialog.style.top = topPos + 'px';
-        dialog.style.left = leftPos + 'px';
-        button.classList.add('focus');
-        dialog.classList.add('show');
-      }
-      
-      // =============== 致命一擊傷害專用對話框 (支持動態加算/乘算行) ===============
-      function openCriticalDamageDialog(button, type, index, panelDiv, config, dialog, spinnerIncrement = 0) {
-        // 解析當前值
-        const currentValues = config.parse(button.dataset.value || '');
-        if (spinnerIncrement !== 0) {
-          currentValues.panel = Math.max(0, currentValues.panel + spinnerIncrement);
-        }
-        
-        // 預設乘算爆傷選項
-        const multiplicativePresets = [
-          { label: 'MAESTRO光環', value: 2 },
-          { label: '團隊爆傷', value: 10 },
-          { label: '223草套(20/23/26/30)', value: 30 }
-        ];
-        
-        // 生成 HTML
-        const additivesHTML = generateAdditivesHTML(currentValues);
-        const multiplicativesHTML = generateMultiplicativesHTML(currentValues, multiplicativePresets);
-        dialog.innerHTML = generateCriticalDamageDialogHTML(index, currentValues, additivesHTML, multiplicativesHTML);
-        
-        // 獲取對話框元素
-        const panelInput = dialog.querySelector('.dialog-panel-input');
-        const additivesContainer = dialog.querySelector('#additive-damages-container');
-        const multiplicativesContainer = dialog.querySelector('#multiplicative-damages-container');
-        
-        // 設置初始值
-        panelInput.value = currentValues.panel || '';
-        
-        // 設置對話框位置
-        setupDialogPosition(dialog, button, panelDiv);
-        panelInput.focus();
-        
-        // 實時同步更新的函數
-        const handleInputChange = () => {
-          const panelValue = parseFloat(panelInput.value) || 0;
-          const additiveDamages = Array.from(dialog.querySelectorAll('.dialog-additive-input')).map(input => parseFloat(input.value) || 0);
-          const multiplicativeDamages = Array.from(dialog.querySelectorAll('.dialog-multiplicative-input')).map(input => parseFloat(input.value) || 0).filter(val => val !== 0);
-          
-          const values = {
-            panel: Math.max(0, panelValue),
-            additive_damages: additiveDamages.length > 0 ? additiveDamages : [0],
-            multiplicative_damages: multiplicativeDamages.length > 0 ? multiplicativeDamages : [0]
-          };
-          
-          button.dataset.value = config.serialize(values);
-          button.textContent = (config.getDisplayValue(values) === 0 || config.getDisplayValue(values) === '0') ? '' : config.getDisplayValue(values);
-          syncStatUpdate(button);
-        };
-        
-        // 綁定 panel 輸入和按鈕事件
-        panelInput.addEventListener('input', handleInputChange);
-        panelInput.addEventListener('change', handleInputChange);
-        dialog.querySelector('.dialog-panel-up').addEventListener('click', (e) => {
-          e.preventDefault();
-          panelInput.value = Math.max(0, (parseFloat(panelInput.value) || 0) + 1);
-          handleInputChange();
-        });
-        dialog.querySelector('.dialog-panel-down').addEventListener('click', (e) => {
-          e.preventDefault();
-          panelInput.value = Math.max(0, (parseFloat(panelInput.value) || 0) - 1);
-          handleInputChange();
-        });
-        
-        // 綁定行事件
-        bindDamageRowEvents(additivesContainer, '.dialog-additive-input', handleInputChange);
-        bindDamageRowEvents(multiplicativesContainer, '.dialog-multiplicative-input', handleInputChange);
-        
-        // 添加行按鈕
-        dialog.querySelector('#add-additive-btn').addEventListener('click', (e) => {
-          e.preventDefault();
-          const newRow = document.createElement('div');
-          newRow.className = 'dialog-dynamic-row';
-          const addIndex = Date.now();
-          newRow.dataset.addIndex = addIndex;
-          newRow.innerHTML = `
-            <input type="number" class="dialog-input dialog-additive-input" id="dialog-additive-${addIndex}" placeholder="" style="flex: 1;" />
-            <select class="dialog-preset-select dialog-additive-preset" id="dialog-additive-preset-${addIndex}" style="flex-shrink: 0; width: 200px;">
-              <option value="custom" selected>自訂</option>
-            </select>
-            <button class="dialog-delete-btn" type="button" aria-label="刪除">−</button>
-          `;
-          additivesContainer.appendChild(newRow);
-          bindSingleRowEvents(newRow, '.dialog-additive-input', handleInputChange);
-          newRow.dataset.eventsBound = 'true';
-          newRow.querySelector('.dialog-additive-input').focus();
-        });
-        
-        dialog.querySelector('#add-multiplicative-btn').addEventListener('click', (e) => {
-          e.preventDefault();
-          const newRow = document.createElement('div');
-          newRow.className = 'dialog-dynamic-row';
-          const mulIndex = Date.now();
-          newRow.dataset.mulIndex = mulIndex;
-          const presetOptions = multiplicativePresets.map(p => `<option value="${p.value}">${p.label}</option>`).join('');
-          newRow.innerHTML = `
-            <input type="number" class="dialog-input dialog-multiplicative-input" id="dialog-multiplicative-${mulIndex}" placeholder="" style="flex: 1;" />
-            <select class="dialog-preset-select dialog-multiplicative-preset" id="dialog-multiplicative-preset-${mulIndex}" style="flex-shrink: 0; width: 200px;">
-              <option value="custom" selected>自訂</option>${presetOptions}
-            </select>
-            <button class="dialog-delete-btn" type="button" aria-label="刪除">−</button>
-          `;
-          multiplicativesContainer.appendChild(newRow);
-          bindSingleRowEvents(newRow, '.dialog-multiplicative-input', handleInputChange);
-          newRow.dataset.eventsBound = 'true';
-          newRow.querySelector('.dialog-multiplicative-input').focus();
-        });
-        
-        // 定義焦點處理
-        const handleOtherInputFocus = (e) => {
-          const isOwnElement = dialog.contains(e.target);
-          if ((e.target.classList.contains('stat-input') || e.target.classList.contains('button-input')) && !isOwnElement) {
-            closeDialog();
-          }
-        };
-        
-        const closeDialog = () => {
-          dialog.classList.remove('show');
-          button.classList.remove('focus');
-          button.blur();
-          
-          // 最後一次更新計算結果
-          if (window.updateProductDisplay && typeof window.updateProductDisplay === 'function') {
-            setTimeout(() => {
-              window.updateProductDisplay();
-            }, 10);
-          }
-          
-          // 移除所有事件監聽器
-          document.removeEventListener('click', handleDocumentClick, true);
-          document.removeEventListener('focus', handleOtherInputFocus, true);
-          document.removeEventListener('keydown', handleKeyDown);
-        };
-        
-        const handleDocumentClick = (e) => {
-          if (dialog.contains(e.target)) {
-            return;
-          }
-          closeDialog();
-        };
-        
-        const handleKeyDown = (e) => {
-          if (e.key === 'Escape') closeDialog();
-        };
-        
-        // 綁定全局事件監聽器
-        document.addEventListener('click', handleDocumentClick, true);
-        document.addEventListener('focus', handleOtherInputFocus, true);
-        document.addEventListener('keydown', handleKeyDown);
-        
-        // 立即觸發一次更新
-        handleInputChange();
-      }
-
-      // =============== 通用特殊對話框打開函數 ===============
-      function openSpecialDialog(button, type, index, panelDiv, config, spinnerIncrement = 0) {
-        // 創建或獲取對話框
-        let dialog = document.getElementById(config.dialogId);
-        if (!dialog) {
-          dialog = document.createElement('div');
-          dialog.id = config.dialogId;
-          dialog.className = 'number-input-dialog';
-          document.getElementById('calcPanel').appendChild(dialog);
-        }
-        
-        // 處理致命一擊傷害特殊對話框（支持動態加算/乘算）
-        if (config.type === 'critical-damage') {
-          openCriticalDamageDialog(button, type, index, panelDiv, config, dialog, spinnerIncrement);
-          return;
-        }
-        
-        // 清空對話框內容並重新生成（這樣會自動移除舊的事件監聽器）
-        let fieldsHTML = '';
-        config.fields.forEach((field, fieldIndex) => {
-          if (field.type === 'number') {
-            const inputId = `dialog-${index}-${field.className}-${fieldIndex}`;
-            fieldsHTML += `
-              <div class="dialog-input-group">
-                <label class="dialog-input-label" for="${inputId}">${field.label}</label>
-                <div style="display: flex; gap: 0; align-items: stretch;">
-                  <input type="number" id="${inputId}" class="dialog-input ${field.className}" style="flex: 1;" />
-                  <div style="display: flex; flex-direction: column; gap: 0; flex-shrink: 0; height: 100%;">
-                    <button class="dialog-spinner-btn dialog-spinner-up" type="button" aria-label="增加" title="增加">
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                        <path d="M7 14l5-5 5 5z"/>
-                      </svg>
-                    </button>
-                    <button class="dialog-spinner-btn dialog-spinner-down" type="button" aria-label="減少" title="減少">
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                        <path d="M7 10l5 5 5-5z"/>
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            `;
-          } else if (field.type === 'select') {
-            let optionsHTML = '';
-            field.options.forEach(option => {
-              optionsHTML += `<option value="${option.value}">${option.label}</option>`;
-            });
-            const selectId = `dialog-${index}-${field.className}-${fieldIndex}`;
-            fieldsHTML += `
-              <div class="dialog-input-group">
-                <label class="dialog-input-label" for="${selectId}">${field.label}</label>
-                <select id="${selectId}" class="dialog-select ${field.className}">
-                  ${optionsHTML}
-                </select>
-              </div>
-            `;
-          } else if (field.type === 'checkbox') {
-            fieldsHTML += `
-              <div class="dialog-input-group checkbox-group">
-                <label class="checkbox-label">
-                  <input type="checkbox" class="dialog-checkbox ${field.className}" />
-                  <span>${field.label}</span>
-                </label>
-              </div>
-            `;
-          }
-        });
-        
-        dialog.innerHTML = `
-          <div class="detailed-dialog">
-            <div class="dual-input-container">
-              ${fieldsHTML}
-            </div>
-          </div>
-        `;
-        
-        // 獲取所有字段元素
-        const fieldElements = {};
-        config.fields.forEach(field => {
-          fieldElements[field.name] = dialog.querySelector(`.${field.className}`);
-        });
-        
-        const calcPanel = document.getElementById('calcPanel');
-        
-        // 設置對話框位置
-        setupDialogPosition(dialog, button, panelDiv);
-        
-        // 解析並設置初始值
-        const parsedValues = config.parse(button.dataset.value || '');
-        
-        // main panel spinner 增量（打開對話框時的初始值調整）
-        if (spinnerIncrement !== 0) {
-          if (config.type === 'simple-number') {
-            parsedValues.value = Math.max(0, parsedValues.value + spinnerIncrement);
-          } else if (config.type === 'multi-field') {
-            // ★ 移除最大值限制：輸入階段允許任意值
-            parsedValues.panel = Math.max(0, parsedValues.panel + spinnerIncrement);
-          }
-        }
-        
-        config.fields.forEach(field => {
-          const element = fieldElements[field.name];
-          if (element) {
-            if (field.type === 'checkbox') {
-              element.checked = parsedValues[field.name] === true;
-            } else {
-              // 对于数字字段，如果值为0或未定义，显示为空
-              const fieldValue = parsedValues[field.name];
-              if (field.type === 'number' && (fieldValue === 0 || fieldValue === undefined)) {
-                element.value = '';
-              } else {
-                element.value = fieldValue !== undefined ? fieldValue : (field.defaultValue || '');
-              }
-            }
-          }
-        });
-        
-        // 添加 button 的 focus 類
-        button.classList.add('focus');
-        
-        // 顯示對話框
-        dialog.classList.add('show');
-        fieldElements[config.fields[0].name].focus();
-        fieldElements[config.fields[0].name].select?.();
-        
-        // 實時同步輸入值到 button
-        const handleInputChange = () => {
-          const values = {};
-          config.fields.forEach(field => {
-            let value;
-            
-            // 處理不同類型的字段
-            if (field.type === 'checkbox') {
-              value = fieldElements[field.name].checked;
-            } else {
-              value = fieldElements[field.name].value;
-            }
-            
-            // 處理數字類型
-            if (field.type === 'number') {
-              value = roundNumber(parseFloat(value) || 0);
-              // 應用最小值限制
-              if (field.minValue !== undefined && value < field.minValue) {
-                value = field.minValue;
-                fieldElements[field.name].value = value;
-              }
-              // ★ 最大值限制移除：輸入階段允許任意值（包括 > 60）
-              // 計算階段的限制已在 calc.js 的 calculateAdaptabilityValue() 中實現
-            }
-            
-            values[field.name] = value;
-          });
-          
-          // 序列化並保存值
-          const serialized = config.serialize(values);
-          button.dataset.value = serialized;
-          
-          // 更新按鈕顯示（只顯示指定字段）
-          const displayValue = config.getDisplayValue ? config.getDisplayValue(values) : values[config.displayField];
-          // 如果顯示值為0或'0'，保持空白；否則顯示值
-          button.textContent = (displayValue === 0 || displayValue === '0') ? '' : displayValue;
-          
-          // 調用統一接口進行完整更新流程
-          syncStatUpdate(button);
-          
-          // ★ 適應力 preset 同步邏輯 ★
-          // 配置1與2的環境Debuff設置要同步
-          if (index === 1 && values.preset !== undefined) {
-            // 找到適應力的另一個按鈕（left或result）
-            const panels = document.querySelectorAll('.input-panel-item');
-            for (let panel of panels) {
-              if (parseInt(panel.dataset.index) === 1) {
-                const otherButtonClass = type === 'left' ? '.result-input' : '.left-input';
-                const otherButton = panel.querySelector(otherButtonClass);
-                
-                if (otherButton && otherButton !== button) {
-                  // 解析另一個按鈕的值
-                  const otherValue = otherButton.dataset.value || '0|0|0|0|95';
-                  const otherParts = otherValue.split('|');
-                  
-                  // 更新 preset 值（第5個部分，索引4）
-                  otherParts[4] = values.preset;
-                  const updatedValue = otherParts.join('|');
-                  
-                  // 保存到另一個按鈕
-                  otherButton.dataset.value = updatedValue;
-                  
-                  // 更新另一個按鈕的顯示（計算顯示值）
-                  const otherParsedValues = config.parse(updatedValue);
-                  const displayValue = config.getDisplayValue ? config.getDisplayValue(otherParsedValues) : otherParsedValues[config.displayField];
-                  otherButton.textContent = (displayValue === 0 || displayValue === '0') ? '' : displayValue;
-                  
-                  // 觸發另一個按鈕的統一接口更新流程
-                  syncStatUpdate(otherButton);
-                }
-              }
-            }
-          }
-        };
-        
-        // 立即觸發一次 handleInputChange 來序列化初始值並保存到 button
-        handleInputChange();
-        
-        // 定義焦點處理
-        const handleOtherInputFocus = (e) => {
-          const isOwnElement = config.fields.some(field => fieldElements[field.name] === e.target);
-          // 排除 spinner 按鈕：點擊 spinner 時不關閉對話框
-          const isSpinnerButton = e.target.classList.contains('dialog-spinner-btn') || 
-                                  e.target.closest('.dialog-spinner-btn') !== null;
-          if (!isSpinnerButton && (e.target.classList.contains('stat-input') || e.target.classList.contains('button-input')) && !isOwnElement) {
-            closeDialog();
-          }
-        };
-        
-        const closeDialog = () => {
-          dialog.classList.remove('show');
-          button.classList.remove('focus');
-          button.blur();
-          
-          // Dialog 關閉時，同步快取並更新顯示
-          if (window.syncAllStatValues && typeof window.syncAllStatValues === 'function') {
-            window.allStatValues = window.syncAllStatValues();
-            // syncAllStatValues 會自動調用 updateProductDisplay，無需再調用
-          } else if (window.updateProductDisplay && typeof window.updateProductDisplay === 'function') {
-            // 備用：如果沒有 syncAllStatValues，直接調用 updateProductDisplay
-            setTimeout(() => {
-              window.updateProductDisplay();
-            }, 10);
-          }
-          
-          // 移除所有事件監聽器
-          config.fields.forEach(field => {
-            const element = fieldElements[field.name];
-            if (element) {
-              element.removeEventListener('input', handleInputChange);
-              element.removeEventListener('change', handleInputChange);
-              element.removeEventListener('keydown', handleKeyDown);
-            }
-          });
-          document.removeEventListener('click', handleDocumentClick, true);
-          document.removeEventListener('focus', handleOtherInputFocus, true);
-        };
-        
-        const handleDocumentClick = (e) => {
-          // 排除對話框內部和 spinner 按鈕的點擊
-          if ((dialog.contains(e.target) || (e.target.closest && e.target.closest(`#${config.dialogId}`))) || 
-              e.target.classList.contains('dialog-spinner-btn') ||
-              (e.target.closest && e.target.closest('.dialog-spinner-btn'))) {
-            return;
-          }
-          closeDialog();
-        };
-        
-        const handleKeyDown = (e) => {
-          if (e.key === 'Escape') closeDialog();
-          if (e.key === 'Tab') {
-            e.preventDefault();
-            const focusedIndex = config.fields.findIndex(f => fieldElements[f.name] === document.activeElement);
-            const nextIndex = (focusedIndex + 1) % config.fields.length;
-            fieldElements[config.fields[nextIndex].name].focus();
-          }
-        };
-        
-        // 綁定事件監聽器
-        config.fields.forEach(field => {
-          const element = fieldElements[field.name];
-          if (element) {
-            if (field.type === 'number') {
-              element.addEventListener('input', handleInputChange);
-              element.addEventListener('change', handleInputChange);
-              
-              // 對話框內 spinner 按鈕事件（實時改值）
-              const parentDiv = element.parentElement;
-              if (parentDiv) {
-                const upBtn = parentDiv.querySelector('.dialog-spinner-up');
-                const downBtn = parentDiv.querySelector('.dialog-spinner-down');
-                
-                if (upBtn) {
-                  upBtn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();  // 防止事件冒泡到關閉對話框的邏輯
-                    handleDialogSpinnerChange(element, field, 1, handleInputChange);
-                  });
-                }
-                
-                if (downBtn) {
-                  downBtn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();  // 防止事件冒泡到關閉對話框的邏輯
-                    handleDialogSpinnerChange(element, field, -1, handleInputChange);
-                  });
-                }
-              }
-            } else if (field.type === 'select') {
-              element.addEventListener('change', handleInputChange);
-            } else if (field.type === 'checkbox') {
-              element.addEventListener('change', handleInputChange);
-            }
-            element.addEventListener('keydown', handleKeyDown);
-          }
-        });
-        
-        document.addEventListener('keydown', handleKeyDown);
-        document.addEventListener('click', handleDocumentClick, true);
-        document.addEventListener('focus', handleOtherInputFocus, true);
-      }
-      
-      function openNumberInputDialog(button, type, index, panelDiv) {
-        // 所有 button-input 項目都在 SPECIAL_DIALOGS 中有配置，統一使用 openSpecialDialog
-        if (SPECIAL_DIALOGS[index]) {
-          openSpecialDialog(button, type, index, panelDiv, SPECIAL_DIALOGS[index]);
-        }
-      }
-      
-      // 獲取對話框中輸入值的輔助函數 - 支持自訂值格式
-      function getInputValueForDialog(element) {
-        let value;
-        if (element && element.classList.contains('button-input')) {
-          if (element.dataset.value) {
-            // 支持自訂分隔格式（如適應力的 "panel|super|preset"），只取第一個值
-            if (element.dataset.value.includes('|')) {
-              value = parseFloat(element.dataset.value.split('|')[0]) || 0;
-            } else {
-              value = parseFloat(element.dataset.value) || 0;
-            }
-          } else {
-            value = 0;
-          }
-        } else {
-          value = element && element.value ? parseFloat(element.value) : 0;
-        }
-        return roundNumber(value);
-      }
 
       // 初始化時設置默認高度
       const calcPanel = document.getElementById('calcPanel');
@@ -1454,13 +663,13 @@
       // 無論有沒有 panels，都計算高度（設置默認高度）
       setTimeout(updatePanelHeight, 50);
     </script>
-    <!-- 簡易數據結構 -->
-    <script src="src/data-structure.js"></script>
     <!-- 新架構：状态管理层 -->
     <script src="src/store.js"></script>
     <!-- 新架構：計算引擎層 -->
     <script src="src/compute.js"></script>
-    <!-- 原有計算邏輯 -->
-    <script src="calc.js"></script>
+    <!-- 對話框管理層 -->
+    <script src="src/dialogs.js"></script>
+    <!-- 新架構：使用者介面層 -->
+    <script src="src/interface.js"></script>
   </body>
 </html>

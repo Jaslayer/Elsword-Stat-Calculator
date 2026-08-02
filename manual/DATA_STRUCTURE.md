@@ -189,7 +189,7 @@ adaptability: {
 在你的計算邏輯中使用：
 
 ```javascript
-// 在 calc.js 或計算函數中
+// 在 interface.js 或計算函數中
 function calculateProduct() {
   const data = UserInputData.getAllData()
   
