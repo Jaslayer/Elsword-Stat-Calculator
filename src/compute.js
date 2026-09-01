@@ -49,10 +49,11 @@ const ComputeEngine = {
    * 內部共通計算乘積函數
    * @param {Map} valuesMap - config1Values 或 config2Values
    * @param {Set} enabledItems - 已啟用的項目集合
+   * @param {Object} store - StatStore 狀態管理器（用於取得適應力環境debuff）
    * @returns {number} 乘積結果
    * @private
    */
-  _calculateProductFromValues(valuesMap, enabledItems) {
+  _calculateProductFromValues(valuesMap, enabledItems, store) {
     if (!valuesMap || valuesMap.size === 0) {
       return 1;
     }
@@ -67,16 +68,26 @@ const ComputeEngine = {
       
       let effectiveValue;
       
-      // 特殊處理適應力
-      const isAdaptability = itemIndex === STAT_ITEMS.ADAPTABILITY;
-      
-      if (isAdaptability) {
-        // 适应力特殊处理：先除以100再加1
-        const adaptValue = value || 0;
-        effectiveValue = adaptValue === 0 ? 1 : (adaptValue / 100 + 1);
-      } else {
-        // 其他项目：0或空时以1计算
-        effectiveValue = (value === 0 || value === null || value === undefined) ? 1 : value;
+      // 根據項目索引進行特殊處理
+      switch (itemIndex) {
+        case STAT_ITEMS.ADAPTABILITY: {
+          // 適應力特殊處理：min(100-環境debuff+(超)適應力最終值,100)/100
+          const adaptValue = value || 0;
+          const preset = store && store.adaptability ? parseInt(store.adaptability.preset) || 0 : 0;
+          effectiveValue = Math.min(100 - preset + adaptValue, 100) / 100;
+          break;
+        }
+        case STAT_ITEMS.PHYSICAL_MAGIC_ATTACK:
+          // 物/魔攻擊力：value直接乘入，若為0則以1計算
+          effectiveValue = (value === 0 || value === null || value === undefined) ? 1 : value;
+          break;
+        case STAT_ITEMS.CRITICAL_DAMAGE:
+          // 致命一擊傷害：value/100 直接乘入，若為0則以1計算
+          effectiveValue = (value === 0 || value === null || value === undefined) ? 1 : value / 100;
+          break;
+        default:
+          // 其他項目：(value+100)/100 乘入
+          effectiveValue = ((value || 0) + 100) / 100;
       }
       
       product *= effectiveValue;
@@ -88,7 +99,7 @@ const ComputeEngine = {
   /**
    * 通用乘積計算函數
    * 根據配置類型計算乘積
-   * 特殊處理：適應力需要先除以100再加1
+   * 特殊處理：適應力計算公式 min(100-環境debuff+(超)適應力最終值,100)/100
    * 只計算已啟用的項目
    * 
    * @param {Object} store - StatStore 狀態管理器
@@ -104,7 +115,7 @@ const ComputeEngine = {
       return 1;
     }
     
-    return this._calculateProductFromValues(valuesMap, store.enabledItems);
+    return this._calculateProductFromValues(valuesMap, store.enabledItems, store);
   },
   
 

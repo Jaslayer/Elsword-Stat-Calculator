@@ -29,7 +29,7 @@ const StatStore = {
     gathering_place: false,
     adapt_potion: false,
     super_adapt: 0,
-    preset: '95%'
+    preset: '95'
   },
   
   // ✨ 新增：已啟用的項目集合（選取狀態）
@@ -160,7 +160,7 @@ const StatStore = {
       gathering_place: data.gathering_place || false,
       adapt_potion: data.adapt_potion || false,
       super_adapt: data.super_adapt || 0,
-      preset: data.preset || '95%'
+      preset: data.preset || '95'
     };
     this.notifyListeners('adaptabilityChanged', this.adaptability);
   },

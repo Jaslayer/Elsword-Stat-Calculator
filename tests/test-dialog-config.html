@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>對話框元素 data-config 驗證</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f5f5f5;
+    }
+    .test-section {
+      background: white;
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .pass { color: #00cc00; font-weight: bold; }
+    .fail { color: #cc0000; font-weight: bold; }
+    h2 { margin-top: 0; }
+    .test-item { margin: 8px 0; padding: 8px; background: #f9f9f9; border-left: 3px solid #0066cc; }
+    .summary { padding: 15px; margin: 20px 0; font-size: 18px; border-radius: 5px; background: white; }
+    code { background: #f0f0f0; padding: 2px 4px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <h1>📋 對話框元素 data-config 屬性驗證</h1>
+  
+  <div class="test-section">
+    <h2>測試指南</h2>
+    <ol>
+      <li>打開主應用 (index.html)</li>
+      <li>選擇一些統計項目（例如 "物/魔攻擊力" 和 "適應力"）</li>
+      <li>點擊 config1 和 config2 的按鈕打開對話框</li>
+      <li>在瀏覽器控制台(F12)執行測試腳本</li>
+      <li>查看結果</li>
+    </ol>
+  </div>
+
+  <div class="test-section">
+    <h2>測試腳本 - 複製到控制台執行</h2>
+    <pre><code>
+// ========== 測試 1: 簡單項目對話框 (例如物/魔攻擊力) ==========
+console.log('=== 測試簡單項目對話框 ===');
+const stat0Dialog = document.querySelector('#stat-dialog-0');
+if (stat0Dialog && stat0Dialog.classList.contains('show')) {
+  const inputs = stat0Dialog.querySelectorAll('input[type="number"]');
+  let allHaveConfig = true;
+  inputs.forEach(input => {
+    if (!input.dataset.config) {
+      console.warn('❌ 找到無 data-config 的輸入框:', input.id);
+      allHaveConfig = false;
+    } else {
+      console.log(`✅ ${input.className} 有 data-config="${input.dataset.config}"`);
+    }
+  });
+  if (allHaveConfig) console.log('✅ 所有簡單項目輸入框都有 data-config');
+} else {
+  console.log('⚠️ 簡單項目對話框未打開，請先打開');
+}
+
+// ========== 測試 2: 適應力對話框 ==========
+console.log('\n=== 測試適應力對話框 ===');
+const adaptDialog = document.querySelector('#adaptabilityInputDialog');
+if (adaptDialog && adaptDialog.classList.contains('show')) {
+  const inputs = adaptDialog.querySelectorAll('input[type="number"], input[type="checkbox"], select');
+  let allHaveConfig = true;
+  inputs.forEach(input => {
+    if (!input.dataset.config) {
+      console.warn('❌ 找到無 data-config 的元素:', input.className);
+      allHaveConfig = false;
+    }
+  });
+  const checkboxes = adaptDialog.querySelectorAll('input[type="checkbox"]');
+  checkboxes.forEach(cb => {
+    console.log(`✅ 複選框 ${cb.className} 有 data-config="${cb.dataset.config}"`);
+  });
+  if (allHaveConfig) console.log('✅ 所有適應力對話框元素都有 data-config');
+} else {
+  console.log('⚠️ 適應力對話框未打開，請先打開');
+}
+
+// ========== 測試 3: 致命一擊傷害對話框 ==========
+console.log('\n=== 測試致命一擊傷害對話框 ===');
+const critDialog = document.querySelector('#criticalDamageInputDialog');
+if (critDialog && critDialog.classList.contains('show')) {
+  const panelInput = critDialog.querySelector('.dialog-panel-input');
+  console.log(`✅ 面板輸入框 有 data-config="${panelInput.dataset.config}"`);
+  
+  const additives = critDialog.querySelectorAll('.dialog-additive-input');
+  additives.forEach((input, idx) => {
+    if (!input.dataset.config) {
+      console.warn(`❌ 加成傷害 #${idx} 無 data-config`);
+    } else {
+      console.log(`✅ 加成傷害輸入框 有 data-config="${input.dataset.config}"`);
+    }
+  });
+  
+  const multiplicatives = critDialog.querySelectorAll('.dialog-multiplicative-input');
+  multiplicatives.forEach((input, idx) => {
+    if (!input.dataset.config) {
+      console.warn(`❌ 乘算爆傷 #${idx} 無 data-config`);
+    } else {
+      console.log(`✅ 乘算爆傷輸入框 有 data-config="${input.dataset.config}"`);
+    }
+  });
+  
+  if (additives.length === 0 && multiplicatives.length === 0) {
+    console.log('⚠️ 對話框中沒有動態行，請先添加加成傷害或乘算爆傷');
+  }
+} else {
+  console.log('⚠️ 致命一擊傷害對話框未打開，請先打開');
+}
+
+console.log('\n=== 測試完成 ===');
+    </code></pre>
+  </div>
+
+  <div class="test-section">
+    <h2>預期結果</h2>
+    <ul>
+      <li>✅ 所有輸入框（input type="number"）都有 <code>data-config="1"</code> 或 <code>data-config="2"</code></li>
+      <li>✅ 所有複選框（input type="checkbox"）都有 <code>data-config</code> 屬性</li>
+      <li>✅ 所有下拉選單（select）都有 <code>data-config</code> 屬性</li>
+      <li>✅ 預設為 <code>data-config</code> 的值對應於打開對話框的按鈕的配置號</li>
+      <li>✅ 動態添加的新行（加成傷害、乘算爆傷）也都有 <code>data-config</code> 屬性</li>
+    </ul>
+  </div>
+
+  <div class="test-section">
+    <h2>快速檢查 - 檢查所有對話框元素</h2>
+    <button onclick="quickCheck()">執行全面檢查</button>
+    <pre id="results"></pre>
+  </div>
+
+  <script>
+    function quickCheck() {
+      const resultsDiv = document.getElementById('results');
+      let output = '';
+      
+      // 檢查是否有打開的對話框
+      const openDialogs = document.querySelectorAll('.number-input-dialog.show');
+      output += `找到 ${openDialogs.length} 個打開的對話框\n\n`;
+      
+      if (openDialogs.length === 0) {
+        output += '❌ 沒有打開的對話框！請在主應用中打開一些對話框。\n';
+      } else {
+        openDialogs.forEach((dialog, idx) => {
+          output += `=== 對話框 ${idx + 1}: ${dialog.id} ===\n`;
+          
+          // 檢查所有輸入框
+          const inputs = dialog.querySelectorAll('input[type="number"], input[type="checkbox"], select');
+          output += `  元素總數: ${inputs.length}\n`;
+          
+          let withConfig = 0;
+          let withoutConfig = 0;
+          inputs.forEach(input => {
+            if (input.dataset.config) {
+              withConfig++;
+            } else {
+              withoutConfig++;
+              output += `    ❌ ${input.className} (${input.id || 'no-id'}) 缺少 data-config\n`;
+            }
+          });
+          
+          if (withoutConfig === 0) {
+            output += `  ✅ 所有 ${withConfig} 個元素都有 data-config\n`;
+          } else {
+            output += `  ⚠️ ${withConfig} 個有 data-config，${withoutConfig} 個缺少\n`;
+          }
+          output += '\n';
+        });
+      }
+      
+      resultsDiv.textContent = output;
+      resultsDiv.style.color = output.includes('❌') ? '#cc0000' : '#00cc00';
+    }
+  </script>
+</body>
+</html>

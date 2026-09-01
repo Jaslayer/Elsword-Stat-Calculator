@@ -138,14 +138,14 @@ function handleDialogSpinnerChange(element, field, increment, handleInputChange)
 /**
  * 生成加算爆傷行 HTML
  */
-function generateAdditivesHTML(currentValues) {
+function generateAdditivesHTML(currentValues, config = '1') {
   let html = '';
   currentValues.additive_damages.forEach((value, addIndex) => {
     if (value === undefined) return;
     html += `
       <div class="dialog-dynamic-row" data-add-index="${addIndex}">
-        <input type="number" class="dialog-input dialog-additive-input" id="dialog-additive-${addIndex}" data-index="${addIndex}" value="${value || ''}" placeholder="" style="flex: 1;" />
-        <select class="dialog-preset-select dialog-additive-preset" id="dialog-additive-preset-${addIndex}" data-index="${addIndex}" style="flex-shrink: 0; width: 200px;">
+        <input type="number" class="dialog-input dialog-additive-input" id="dialog-additive-${addIndex}" data-index="${addIndex}" data-config="${config}" value="${value ?? ''}" placeholder="" style="flex: 1;" />
+        <select class="dialog-preset-select dialog-additive-preset" id="dialog-additive-preset-${addIndex}" data-index="${addIndex}" data-config="${config}" style="flex-shrink: 0; width: 200px;">
           <option value="custom" selected>自訂</option>
         </select>
         <button class="dialog-delete-btn" type="button" data-index="${addIndex}" aria-label="刪除">−</button>
@@ -158,7 +158,7 @@ function generateAdditivesHTML(currentValues) {
 /**
  * 生成乘算爆傷行 HTML
  */
-function generateMultiplicativesHTML(currentValues, presets) {
+function generateMultiplicativesHTML(currentValues, presets, config = '1') {
   let html = '';
   currentValues.multiplicative_damages.forEach((value, mulIndex) => {
     if (value === undefined) return;
@@ -167,8 +167,8 @@ function generateMultiplicativesHTML(currentValues, presets) {
     ).join('');
     html += `
       <div class="dialog-dynamic-row" data-mul-index="${mulIndex}">
-        <input type="number" class="dialog-input dialog-multiplicative-input" id="dialog-multiplicative-${mulIndex}" data-index="${mulIndex}" value="${value || ''}" placeholder="" style="flex: 1;" />
-        <select class="dialog-preset-select dialog-multiplicative-preset" id="dialog-multiplicative-preset-${mulIndex}" data-index="${mulIndex}" style="flex-shrink: 0; width: 200px;">
+        <input type="number" class="dialog-input dialog-multiplicative-input" id="dialog-multiplicative-${mulIndex}" data-index="${mulIndex}" data-config="${config}" value="${value ?? ''}" placeholder="" style="flex: 1;" />
+        <select class="dialog-preset-select dialog-multiplicative-preset" id="dialog-multiplicative-preset-${mulIndex}" data-index="${mulIndex}" data-config="${config}" style="flex-shrink: 0; width: 200px;">
           <option value="custom">自訂</option>${presetOptions}
         </select>
         <button class="dialog-delete-btn" type="button" data-index="${mulIndex}" aria-label="刪除">−</button>
@@ -216,7 +216,7 @@ function bindDamageRowEvents(container, inputSelector, handleChange) {
 /**
  * 生成對話框 HTML 結構
  */
-function generateCriticalDamageDialogHTML(index, currentValues, additivesHTML, multiplicativesHTML) {
+function generateCriticalDamageDialogHTML(index, currentValues, additivesHTML, multiplicativesHTML, config = '1') {
   const panelInputId = `dialog-panel-${index}`;
   return `
     <div class="detailed-dialog">
@@ -224,7 +224,7 @@ function generateCriticalDamageDialogHTML(index, currentValues, additivesHTML, m
         <div class="dialog-input-group">
           <label class="dialog-input-label" for="${panelInputId}">面板</label>
           <div style="display: flex; gap: 6px; align-items: stretch;">
-            <input type="number" id="${panelInputId}" class="dialog-input dialog-panel-input" placeholder="" style="flex: 1;" />
+            <input type="number" id="${panelInputId}" class="dialog-input dialog-panel-input" data-config="${config}" placeholder="" style="flex: 1;" />
             <div style="display: flex; flex-direction: column; gap: 0; flex-shrink: 0;">
               <button class="dialog-spinner-btn dialog-panel-up" type="button" aria-label="增加">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M7 14l5-5 5 5z"/></svg>
@@ -288,10 +288,13 @@ function openCriticalDamageDialog(button, type, index, panelDiv, config, dialog,
     { label: '223草套(20/23/26/30)', value: 30 }
   ];
   
+  // 獲取 config 號
+  const configNumber = button.dataset.config || '1';
+  
   // 生成 HTML
-  const additivesHTML = generateAdditivesHTML(currentValues);
-  const multiplicativesHTML = generateMultiplicativesHTML(currentValues, multiplicativePresets);
-  dialog.innerHTML = generateCriticalDamageDialogHTML(index, currentValues, additivesHTML, multiplicativesHTML);
+  const additivesHTML = generateAdditivesHTML(currentValues, configNumber);
+  const multiplicativesHTML = generateMultiplicativesHTML(currentValues, multiplicativePresets, configNumber);
+  dialog.innerHTML = generateCriticalDamageDialogHTML(index, currentValues, additivesHTML, multiplicativesHTML, configNumber);
   
   // 獲取對話框元素
   const panelInput = dialog.querySelector('.dialog-panel-input');
@@ -319,7 +322,12 @@ function openCriticalDamageDialog(button, type, index, panelDiv, config, dialog,
     
     button.dataset.value = config.serialize(values);
     button.textContent = (config.getDisplayValue(values) === 0 || config.getDisplayValue(values) === '0') ? '' : config.getDisplayValue(values);
-    syncStatUpdate(button);
+    
+    // config1 與 config2 的值分開存儲，不進行同步
+    // 使用 data-config 屬性區分配置號
+    if (window.syncInputToDisplay && typeof window.syncInputToDisplay === 'function') {
+      setTimeout(() => window.syncInputToDisplay(button), 0);
+    }
   };
   
   // 綁定 panel 輸入和按鈕事件
@@ -348,8 +356,8 @@ function openCriticalDamageDialog(button, type, index, panelDiv, config, dialog,
     const addIndex = Date.now();
     newRow.dataset.addIndex = addIndex;
     newRow.innerHTML = `
-      <input type="number" class="dialog-input dialog-additive-input" id="dialog-additive-${addIndex}" placeholder="" style="flex: 1;" />
-      <select class="dialog-preset-select dialog-additive-preset" id="dialog-additive-preset-${addIndex}" style="flex-shrink: 0; width: 200px;">
+      <input type="number" class="dialog-input dialog-additive-input" id="dialog-additive-${addIndex}" data-config="${configNumber}" placeholder="" style="flex: 1;" />
+      <select class="dialog-preset-select dialog-additive-preset" id="dialog-additive-preset-${addIndex}" data-config="${configNumber}" style="flex-shrink: 0; width: 200px;">
         <option value="custom" selected>自訂</option>
       </select>
       <button class="dialog-delete-btn" type="button" aria-label="刪除">−</button>
@@ -368,8 +376,8 @@ function openCriticalDamageDialog(button, type, index, panelDiv, config, dialog,
     newRow.dataset.mulIndex = mulIndex;
     const presetOptions = multiplicativePresets.map(p => `<option value="${p.value}">${p.label}</option>`).join('');
     newRow.innerHTML = `
-      <input type="number" class="dialog-input dialog-multiplicative-input" id="dialog-multiplicative-${mulIndex}" placeholder="" style="flex: 1;" />
-      <select class="dialog-preset-select dialog-multiplicative-preset" id="dialog-multiplicative-preset-${mulIndex}" style="flex-shrink: 0; width: 200px;">
+      <input type="number" class="dialog-input dialog-multiplicative-input" id="dialog-multiplicative-${mulIndex}" data-config="${configNumber}" placeholder="" style="flex: 1;" />
+      <select class="dialog-preset-select dialog-multiplicative-preset" id="dialog-multiplicative-preset-${mulIndex}" data-config="${configNumber}" style="flex-shrink: 0; width: 200px;">
         <option value="custom" selected>自訂</option>${presetOptions}
       </select>
       <button class="dialog-delete-btn" type="button" aria-label="刪除">−</button>
@@ -444,6 +452,7 @@ function openSpecialDialog(button, type, index, panelDiv, config, spinnerIncreme
   }
   
   // 清空對話框內容並重新生成（這樣會自動移除舊的事件監聽器）
+  const dataConfig = button.dataset.config || '1';
   let fieldsHTML = '';
   config.fields.forEach((field, fieldIndex) => {
     if (field.type === 'number') {
@@ -452,7 +461,7 @@ function openSpecialDialog(button, type, index, panelDiv, config, spinnerIncreme
         <div class="dialog-input-group">
           <label class="dialog-input-label" for="${inputId}">${field.label}</label>
           <div style="display: flex; gap: 0; align-items: stretch;">
-            <input type="number" id="${inputId}" class="dialog-input ${field.className}" style="flex: 1;" />
+            <input type="number" id="${inputId}" class="dialog-input ${field.className}" data-config="${dataConfig}" style="flex: 1;" />
             <div style="display: flex; flex-direction: column; gap: 0; flex-shrink: 0; height: 100%;">
               <button class="dialog-spinner-btn dialog-spinner-up" type="button" aria-label="增加" title="增加">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -477,7 +486,7 @@ function openSpecialDialog(button, type, index, panelDiv, config, spinnerIncreme
       fieldsHTML += `
         <div class="dialog-input-group">
           <label class="dialog-input-label" for="${selectId}">${field.label}</label>
-          <select id="${selectId}" class="dialog-select ${field.className}">
+          <select id="${selectId}" class="dialog-select ${field.className}" data-config="${dataConfig}">
             ${optionsHTML}
           </select>
         </div>
@@ -486,7 +495,7 @@ function openSpecialDialog(button, type, index, panelDiv, config, spinnerIncreme
       fieldsHTML += `
         <div class="dialog-input-group checkbox-group">
           <label class="checkbox-label">
-            <input type="checkbox" class="dialog-checkbox ${field.className}" />
+            <input type="checkbox" class="dialog-checkbox ${field.className}" data-config="${dataConfig}" />
             <span>${field.label}</span>
           </label>
         </div>
@@ -554,6 +563,7 @@ function openSpecialDialog(button, type, index, panelDiv, config, spinnerIncreme
   // 實時同步輸入值到 button
   const handleInputChange = () => {
     const values = {};
+    
     config.fields.forEach(field => {
       let value;
       
@@ -587,49 +597,21 @@ function openSpecialDialog(button, type, index, panelDiv, config, spinnerIncreme
     // 如果顯示值為0或'0'，保持空白；否則顯示值
     button.textContent = (displayValue === 0 || displayValue === '0') ? '' : displayValue;
     
-    // 調用統一接口進行完整更新流程
-    syncStatUpdate(button);
-    
-    // ★ 適應力 preset 同步邏輯 ★
-    // 配置1與2的環境Debuff設置要同步
-    if (index === 1 && values.preset !== undefined) {
-      // 找到適應力的另一個按鈕（left或result）
-      const panels = document.querySelectorAll('.input-panel-item');
-      for (let panel of panels) {
-        if (parseInt(panel.dataset.index) === 1) {
-          const otherButtonClass = type === 'left' ? '.result-input' : '.left-input';
-          const otherButton = panel.querySelector(otherButtonClass);
-          
-          if (otherButton && otherButton !== button) {
-            // 解析另一個按鈕的值（使用 JSON 格式）
-            const INITIAL_VALUES = {
-              0: { value: 0 },
-              1: { panel: 0, gathering_place: false, adapt_potion: false, super_adapt: 0, preset: '95' },
-              2: { panel: 0, additive_damages: [0], multiplicative_damages: [0] },
-              4: { value: 0 },
-              5: { value: 0 },
-              10: { value: 0 }
-            };
-            const otherValue = otherButton.dataset.value || JSON.stringify(INITIAL_VALUES[1]);
-            const otherParsedValues = config.parse(otherValue);
-            
-            // 更新 preset 值
-            otherParsedValues.preset = values.preset;
-            const updatedValue = config.serialize(otherParsedValues);
-            
-            // 保存到另一個按鈕
-            otherButton.dataset.value = updatedValue;
-            
-            // 更新另一個按鈕的顯示（計算顯示值）
-            const displayValue = config.getDisplayValue ? config.getDisplayValue(otherParsedValues) : otherParsedValues[config.displayField];
-            otherButton.textContent = (displayValue === 0 || displayValue === '0') ? '' : displayValue;
-            
-            // 觸發另一個按鈕的統一接口更新流程
-            syncStatUpdate(otherButton);
-          }
-        }
+    // 對於複雜項目（stat-1 和 stat-2），呼叫 syncInputToDisplay 保留完整的序列化數據
+    // 對於簡單項目，呼叫 syncStatUpdate
+    if (index === 1 || index === 2) {
+      // 複雜項目：直接呼叫 syncInputToDisplay 避免 syncStatUpdate 的格式覆蓋
+      if (window.syncInputToDisplay && typeof window.syncInputToDisplay === 'function') {
+        // 確保使用 setTimeout 確保 DOM 更新後再調用
+        setTimeout(() => window.syncInputToDisplay(button), 0);
       }
+    } else {
+      // 簡單項目：使用原來的 syncStatUpdate
+      syncStatUpdate(button);
     }
+    
+    // config1 與 config2 的值分開存儲，不進行同步
+    // 使用 data-config 屬性區分配置號
   };
   
   // 立即觸發一次 handleInputChange 來序列化初始值並保存到 button
@@ -726,7 +708,13 @@ function openSpecialDialog(button, type, index, panelDiv, config, spinnerIncreme
           }
         }
       } else if (field.type === 'select') {
-        element.addEventListener('change', handleInputChange);
+        // 💡 檢測是否是 preset（環境debuff）字段變化
+        element.addEventListener('change', (e) => {
+          if (field.name === 'preset') {
+            button.dataset.fieldChanged = 'preset';
+          }
+          handleInputChange();
+        });
       } else if (field.type === 'checkbox') {
         element.addEventListener('change', handleInputChange);
       }

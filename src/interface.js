@@ -17,36 +17,159 @@ function syncInputToDisplay(element = null) {
   
   // 如果有具體元素：更新單個 StatStore 值
   if (element) {
-    const value = computeInputValue(element);
+    const config = parseInt(element.dataset.config);  // "1" 或 "2"
+    const index = parseInt(element.dataset.index);
     
-    let match = element.id.match(/stat-(\d+)-left/);
-    const isConfig1 = !!match;
-    if (!match) {
-      match = element.id.match(/stat-(\d+)-result/);
-    }
-    
-    if (!match) {
-      console.warn('syncInputToDisplay: 無法識別輸入元素');
+    if (!config || !index && index !== 0) {
+      console.warn('syncInputToDisplay: 無法識別輸入元素 (缺少 data-config 或 data-index)');
       return;
     }
     
-    const index = parseInt(match[1]);
-    if (isConfig1) {
-      window.StatStore.setConfig1Value(index, value);
+    // 特殊處理複雜項目（stat-1 適應力，stat-2 致命一擊傷害）
+    if (index === 1 || index === 2) {
+      // 複雜項目：從 button.dataset.value 解析並同步到 StatStore
+      try {
+        const data = JSON.parse(element.dataset.value || '{}');
+        let calculatedValue = 0;
+        
+        if (index === 1) {
+          // 適應力：同步到 StatStore.adaptability 和 config values
+          window.StatStore.setAdaptability(data);
+          calculatedValue = window.ComputeEngine?.calculateAdaptabilityValue?.(data) ?? data.panel ?? 0;
+          
+          // 💡 檢測是否只有 preset（環境debuff）字段變化
+          if (element.dataset.fieldChanged === 'preset') {
+            // 同步 preset 值到另一個 config 的適應力
+            _syncAdaptabilityPreset(config, data.preset);
+            console.log(`✅ 適應力 preset 同步: config${config} 的 preset 已同步到 config${config === 1 ? 2 : 1}`);
+          }
+        } else if (index === 2) {
+          // 致命一擊傷害：同步到 StatStore.criticalDamage 和 config values
+          window.StatStore.setCriticalDamage(data);
+          calculatedValue = window.ComputeEngine?.calculateCriticalDamageValue?.(data) ?? data.panel ?? 0;
+        }
+        
+        // 💡 關鍵修復：同時更新 config values Maps，使乘積計算能讀到值
+        if (config === 1) {
+          window.StatStore.setConfig1Value(index, calculatedValue);
+        } else if (config === 2) {
+          window.StatStore.setConfig2Value(index, calculatedValue);
+        }
+      } catch (e) {
+        console.warn(`Failed to parse complex item ${index}:`, e);
+      }
     } else {
-      window.StatStore.setConfig2Value(index, value);
+      // 簡單項目：通過 computeInputValue 讀取數字值
+      const value = computeInputValue(element);
+      if (config === 1) {
+        window.StatStore.setConfig1Value(index, value);
+      } else if (config === 2) {
+        window.StatStore.setConfig2Value(index, value);
+      }
     }
   }
   // 如果沒有元素：從 DOM 讀取所有初始值
   else {
-    _syncElementsToStore('[id^="stat-"][id$="-left"]', /stat-(\d+)-left/, 
-      (idx, val) => window.StatStore.setConfig1Value(idx, val));
-    _syncElementsToStore('[id^="stat-"][id$="-result"]', /stat-(\d+)-result/, 
-      (idx, val) => window.StatStore.setConfig2Value(idx, val));
+    // 使用 data-config 屬性直接識別 config1 和 config2
+    const config1Elements = document.querySelectorAll('[data-config="1"]');
+    const config2Elements = document.querySelectorAll('[data-config="2"]');
+    
+    config1Elements.forEach(el => {
+      const index = parseInt(el.dataset.index);
+      if (index === 1 || index === 2) {
+        // 複雜項目：從 dataset.value 解析並計算
+        try {
+          const data = JSON.parse(el.dataset.value || '{}');
+          let calculatedValue = 0;
+          
+          if (index === 1) {
+            window.StatStore.setAdaptability(data);
+            calculatedValue = window.ComputeEngine?.calculateAdaptabilityValue?.(data) ?? data.panel ?? 0;
+          } else if (index === 2) {
+            window.StatStore.setCriticalDamage(data);
+            calculatedValue = window.ComputeEngine?.calculateCriticalDamageValue?.(data) ?? data.panel ?? 0;
+          }
+          window.StatStore.setConfig1Value(index, calculatedValue);
+        } catch (e) {
+          console.warn(`Failed to parse complex item ${index}:`, e);
+        }
+      } else {
+        // 簡單項目
+        const value = computeInputValue(el);
+        window.StatStore.setConfig1Value(index, value);
+      }
+    });
+    
+    config2Elements.forEach(el => {
+      const index = parseInt(el.dataset.index);
+      if (index === 1 || index === 2) {
+        // 複雜項目：從 dataset.value 解析並計算
+        try {
+          const data = JSON.parse(el.dataset.value || '{}');
+          let calculatedValue = 0;
+          
+          if (index === 1) {
+            window.StatStore.setAdaptability(data);
+            calculatedValue = window.ComputeEngine?.calculateAdaptabilityValue?.(data) ?? data.panel ?? 0;
+          } else if (index === 2) {
+            window.StatStore.setCriticalDamage(data);
+            calculatedValue = window.ComputeEngine?.calculateCriticalDamageValue?.(data) ?? data.panel ?? 0;
+          }
+          window.StatStore.setConfig2Value(index, calculatedValue);
+        } catch (e) {
+          console.warn(`Failed to parse complex item ${index}:`, e);
+        }
+      } else {
+        // 簡單項目
+        const value = computeInputValue(el);
+        window.StatStore.setConfig2Value(index, value);
+      }
+    });
   }
   
   // 共同的計算和顯示流程
   _updateAllDisplays();
+}
+
+/**
+ * 內部函數：同步適應力的 preset（環境debuff）到另一個 config
+ * 當 preset 字段變化時，自動將該值同步到另一個 config 的適應力
+ * @private
+ * @param {number} sourceConfig - 源 config 號 (1 或 2)
+ * @param {string} presetValue - preset 值 ('0', '50', '90', '95')
+ */
+function _syncAdaptabilityPreset(sourceConfig, presetValue) {
+  // 確定目標按鈕（另一個 config）
+  // config1 (stat-1-left) <-> config2 (stat-1-result)
+  const targetButton = sourceConfig === 1 
+    ? document.getElementById('stat-1-result')
+    : document.getElementById('stat-1-left');
+  
+  if (!targetButton) {
+    console.warn(`_syncAdaptabilityPreset: 找不到目標按鈕 (config${sourceConfig === 1 ? 2 : 1})`);
+    return;
+  }
+  
+  try {
+    // 解析目標 button 的當前數據
+    const targetData = JSON.parse(targetButton.dataset.value || '{}');
+    
+    // 更新 preset 值
+    targetData.preset = presetValue;
+    
+    // 重新序列化並保存回 dataset
+    targetButton.dataset.value = JSON.stringify(targetData);
+    
+    // 保存前一個 preset 值（防止再次觸發同步）
+    targetButton.dataset.previousPreset = presetValue;
+    
+    // 清除 fieldChanged 標記（防止遞迴同步）
+    delete targetButton.dataset.fieldChanged;
+    
+    console.log(`✅ preset 已同步到 config${sourceConfig === 1 ? 2 : 1}: ${presetValue}`);
+  } catch (e) {
+    console.warn(`Failed to sync adaptability preset:`, e);
+  }
 }
 
 /**
@@ -62,22 +185,180 @@ function init() {
   // 包括 config1/config2 值、計算結果、enabledItems 等
   const restored = window.StatStore.loadFromStorage();
   
-  // 如果成功恢復了狀態，直接更新顯示；
+  // 如果成功恢復了狀態，先恢復 DOM 元素值，再計算並顯示；
   // 否則從 DOM 初始化
   if (restored) {
-    // 只更新顯示，不覆蓋已恢復的值
+    // Step 1: 將恢復的 StatStore 數據同步回 DOM 元素
+    _restoreDOMFromStore();
+    
+    // Step 2: 計算和顯示結果
     _updateAllDisplays();
   } else {
     // 沒有保存的狀態，從 DOM 初始化
     syncInputToDisplay(null);
   }
   
-  console.log('✅ interface.js 已初始化完成');
+  console.log('✅ interface.js 已初始化完成 (重整後數據已恢復到 ds → 計算 → 顯示)');
+  
 }
 
 // ============================================================================
 // 2️⃣ 【內部協調】- 流程控制
 // ============================================================================
+
+/**
+ * 內部函數：將恢復的 StatStore 數據同步回所有 DOM 元素
+ * 這確保頁面重整後，DOM 顯示與 StatStore 保存的數據完全一致
+ * @private
+ */
+function _restoreDOMFromStore() {
+  if (!window.StatStore) return;
+  
+  // 恢復 config1（左配置）值到 DOM 元素
+  document.querySelectorAll('[data-config="1"]').forEach(element => {
+    const index = parseInt(element.dataset.index);
+    if (index || index === 0) {
+      const value = window.StatStore.getConfig1Value(index);
+      
+      if (element.classList.contains('button-input')) {
+        // 按鈕類型：使用 JSON 格式存儲 { value: ... }
+        element.dataset.value = JSON.stringify({ value: value });
+        element.textContent = value === 0 ? '' : value;
+      } else {
+        // 輸入框類型：更新 value 屬性
+        element.value = value === 0 ? '' : value;
+      }
+    }
+  });
+  
+  // 恢復 config2（右配置）值到 DOM 元素
+  document.querySelectorAll('[data-config="2"]').forEach(element => {
+    const index = parseInt(element.dataset.index);
+    if (index || index === 0) {
+      const value = window.StatStore.getConfig2Value(index);
+      
+      if (element.classList.contains('button-input')) {
+        // 按鈕類型：使用 JSON 格式存儲 { value: ... }
+        element.dataset.value = JSON.stringify({ value: value });
+        element.textContent = value === 0 ? '' : value;
+      } else {
+        // 輸入框類型：更新 value 屬性
+        element.value = value === 0 ? '' : value;
+      }
+    }
+  });
+  
+  // 恢復特殊項目數據（致命一擊傷害、適應力）
+  // 這個函數會處理複雜序列化格式（JSON 對象而不是簡單數字）
+  _restoreSpecialItemsToDOM();
+  
+  console.log('✅ DOM 元素已從 StatStore 恢復');
+}
+
+/**
+ * 內部函數：恢復特殊項目數據到 DOM（致命一擊傷害、適應力）
+ * @private
+ */
+function _restoreSpecialItemsToDOM() {
+  if (!window.StatStore) return;
+  
+  const store = window.StatStore;
+  
+  console.log('🔍 _restoreSpecialItemsToDOM 開始');
+  console.log('   store.criticalDamage:', store.criticalDamage);
+  console.log('   store.adaptability:', store.adaptability);
+  
+  // 恢復複雜項目到按鈕的 dataset.value 中
+  // 注意：button.dataset.value 是獨立的，左右按鈕各自維護
+  
+  // 恢復致命一擊傷害
+  if (store.criticalDamage && Object.keys(store.criticalDamage).length > 0) {
+    const criticalDamageLeft = document.getElementById('stat-2-left');
+    if (criticalDamageLeft) {
+      const serialized = serializeCriticalDamage(store.criticalDamage);
+      if (criticalDamageLeft.classList.contains('button-input')) {
+        criticalDamageLeft.dataset.value = serialized;
+        const displayValue = store.criticalDamage.panel || 0;
+        criticalDamageLeft.textContent = displayValue === 0 ? '' : displayValue;
+      } else {
+        criticalDamageLeft.value = serialized;
+      }
+    }
+    
+    // 右側按鈕：計算結果
+    const criticalDamageResult = document.getElementById('stat-2-result');
+    if (criticalDamageResult) {
+      const resultValue = window.ComputeEngine?.calculateCriticalDamageValue 
+        ? window.ComputeEngine.calculateCriticalDamageValue(store.criticalDamage)
+        : store.criticalDamage.panel;
+      
+      if (criticalDamageResult.classList.contains('button-input')) {
+        criticalDamageResult.dataset.value = serializeCriticalDamage(store.criticalDamage);
+        criticalDamageResult.textContent = resultValue === 0 ? '' : resultValue;
+      } else {
+        criticalDamageResult.value = resultValue === 0 ? '' : resultValue;
+      }
+    }
+  }
+  
+  // 恢復適應力
+  if (store.adaptability && Object.keys(store.adaptability).length > 0) {
+    const adaptabilityLeft = document.getElementById('stat-1-left');
+    if (adaptabilityLeft) {
+      const serialized = serializeAdaptability(store.adaptability);
+      if (adaptabilityLeft.classList.contains('button-input')) {
+        adaptabilityLeft.dataset.value = serialized;
+        const displayValue = store.adaptability.panel || 0;
+        adaptabilityLeft.textContent = displayValue === 0 ? '' : displayValue;
+      } else {
+        adaptabilityLeft.value = serialized;
+      }
+    }
+    
+    // 右側按鈕：計算結果
+    const adaptabilityResult = document.getElementById('stat-1-result');
+    if (adaptabilityResult) {
+      const resultValue = window.ComputeEngine?.calculateAdaptabilityValue 
+        ? window.ComputeEngine.calculateAdaptabilityValue(store.adaptability)
+        : store.adaptability.panel;
+      
+      if (adaptabilityResult.classList.contains('button-input')) {
+        adaptabilityResult.dataset.value = serializeAdaptability(store.adaptability);
+        adaptabilityResult.textContent = resultValue === 0 ? '' : resultValue;
+      } else {
+        adaptabilityResult.value = resultValue === 0 ? '' : resultValue;
+      }
+    }
+  }
+  
+  console.log('✅ _restoreSpecialItemsToDOM 完成');
+}
+
+/**
+ * 序列化致命一擊傷害數據為 JSON 字符串
+ * @private
+ */
+function serializeCriticalDamage(damageData) {
+  return JSON.stringify({
+    panel: damageData.panel || 0,
+    additive_damages: damageData.additive_damages || [],
+    multiplicative_damages: damageData.multiplicative_damages || []
+  });
+}
+
+/**
+ * 序列化適應力數據為 JSON 字符串
+ * @private
+ */
+function serializeAdaptability(adaptData) {
+  return JSON.stringify({
+    panel: adaptData.panel || 0,
+    gathering_place: adaptData.gathering_place || false,
+    adapt_potion: adaptData.adapt_potion || false,
+    super_adapt: adaptData.super_adapt || 0,
+    preset: adaptData.preset || '95'
+  });
+}
 
 /**
  * 內部函數：計算所有派生值並更新所有顯示
@@ -105,23 +386,65 @@ function updateButtonDisplays() {
   if (!window.StatStore) return;
   
   // 更新所有 config1 按鈕
-  const leftButtons = document.querySelectorAll('[id^="stat-"][id$="-left"].button-input');
+  const leftButtons = document.querySelectorAll('.button-input[data-config="1"]');
   leftButtons.forEach(button => {
-    const match = button.id.match(/stat-(\d+)-left/);
-    if (match) {
-      const index = parseInt(match[1]);
-      const value = window.StatStore.getConfig1Value(index);
+    const index = parseInt(button.dataset.index);
+    if (index || index === 0) {
+      let value;
+      
+      // 特殊處理複雜項目
+      if (index === 1 || index === 2) {
+        // 適應力或致命一擊傷害：從 button.dataset.value 解析並計算結果值
+        try {
+          const data = JSON.parse(button.dataset.value || '{}');
+          if (index === 1) {
+            // 適應力：計算結果值
+            value = window.ComputeEngine?.calculateAdaptabilityValue?.(data) ?? data.panel ?? 0;
+          } else if (index === 2) {
+            // 致命一擊傷害：計算結果值
+            value = window.ComputeEngine?.calculateCriticalDamageValue?.(data) ?? data.panel ?? 0;
+          }
+        } catch (e) {
+          value = 0;
+        }
+      } else {
+        // 簡單項目：從 config1Values 獲取
+        value = window.StatStore.getConfig1Value(index);
+      }
+      
       button.textContent = value === 0 ? '' : value;
     }
   });
   
   // 更新所有 config2 按鈕
-  const resultButtons = document.querySelectorAll('[id^="stat-"][id$="-result"].button-input');
+  const resultButtons = document.querySelectorAll('.button-input[data-config="2"]');
   resultButtons.forEach(button => {
-    const match = button.id.match(/stat-(\d+)-result/);
-    if (match) {
-      const index = parseInt(match[1]);
-      const value = window.StatStore.getConfig2Value(index);
+    const index = parseInt(button.dataset.index);
+    if (index || index === 0) {
+      let value;
+      
+      // 特殊處理複雜項目
+      if (index === 1) {
+        // 適應力：從按鈕的 dataset.value 解析並計算結果
+        try {
+          const data = JSON.parse(button.dataset.value || '{}');
+          value = window.ComputeEngine?.calculateAdaptabilityValue?.(data) ?? data.panel ?? 0;
+        } catch (e) {
+          value = 0;
+        }
+      } else if (index === 2) {
+        // 致命一擊傷害：從按鈕的 dataset.value 解析並計算結果
+        try {
+          const data = JSON.parse(button.dataset.value || '{}');
+          value = window.ComputeEngine?.calculateCriticalDamageValue?.(data) ?? data.panel ?? 0;
+        } catch (e) {
+          value = 0;
+        }
+      } else {
+        // 簡單項目：從 config2Values 獲取
+        value = window.StatStore.getConfig2Value(index);
+      }
+      
       button.textContent = value === 0 ? '' : value;
     }
   });
@@ -340,6 +663,34 @@ function _syncElementsToStore(selector, idPattern, setterFn) {
       setterFn(index, value);
     }
   });
+}
+
+/**
+ * 內部輔助：同步複雜項目（適應力、致命一擊傷害）到 StatStore
+ * @private
+ */
+function _syncComplexItemsToStore() {
+  // 同步適應力 (stat-1)
+  const adaptabilityLeft = document.getElementById('stat-1-left');
+  if (adaptabilityLeft && adaptabilityLeft.dataset.value) {
+    try {
+      const data = JSON.parse(adaptabilityLeft.dataset.value);
+      window.StatStore.setAdaptability(data);
+    } catch (e) {
+      console.warn('Failed to sync adaptability from stat-1-left:', e);
+    }
+  }
+  
+  // 同步致命一擊傷害 (stat-2)
+  const criticalDamageLeft = document.getElementById('stat-2-left');
+  if (criticalDamageLeft && criticalDamageLeft.dataset.value) {
+    try {
+      const data = JSON.parse(criticalDamageLeft.dataset.value);
+      window.StatStore.setCriticalDamage(data);
+    } catch (e) {
+      console.warn('Failed to sync critical damage from stat-2-left:', e);
+    }
+  }
 }
 
 // ============================================================================
