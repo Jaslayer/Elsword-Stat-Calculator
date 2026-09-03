@@ -16,20 +16,48 @@ const StatStore = {
   config2Product: 1,
   ratioValue: '-',
   
-  // ✨ 新增：特殊項目 - 致命一擊傷害
-  criticalDamage: {
+  // ✨ 新增：特殊項目 - 致命一擊傷害（config1）
+  criticalDamageConfig1: {
     panel: 0,
     additive_damages: [],
     multiplicative_damages: []
   },
   
-  // ✨ 新增：特殊項目 - 適應力
-  adaptability: {
+  // ✨ 新增：特殊項目 - 致命一擊傷害（config2）
+  criticalDamageConfig2: {
+    panel: 0,
+    additive_damages: [],
+    multiplicative_damages: []
+  },
+  
+  // ✨ 新增：特殊項目 - 適應力（config1）
+  adaptabilityConfig1: {
     panel: 0,
     gathering_place: false,
     adapt_potion: false,
     super_adapt: 0,
     preset: '95'
+  },
+  
+  // ✨ 新增：特殊項目 - 適應力（config2）
+  adaptabilityConfig2: {
+    panel: 0,
+    gathering_place: false,
+    adapt_potion: false,
+    super_adapt: 0,
+    preset: '95'
+  },
+  
+  // ✨ 新增：特殊項目 - Boss傷害（config1）
+  bossDamageConfig1: {
+    value: 0,
+    guild_skill: false
+  },
+  
+  // ✨ 新增：特殊項目 - Boss傷害（config2）
+  bossDamageConfig2: {
+    value: 0,
+    guild_skill: false
   },
   
   // ✨ 新增：已啟用的項目集合（選取狀態）
@@ -140,29 +168,65 @@ const StatStore = {
   /**
    * 設置致命一擊傷害數據
    * @param {Object} data - 包含 panel, additive_damages, multiplicative_damages
+   * @param {number} config - 配置號 (1 或 2)
    */
-  setCriticalDamage(data) {
-    this.criticalDamage = {
+  setCriticalDamage(data, config) {
+    const criticalDamageData = {
       panel: data.panel || 0,
       additive_damages: data.additive_damages || [],
       multiplicative_damages: data.multiplicative_damages || []
     };
-    this.notifyListeners('criticalDamageChanged', this.criticalDamage);
+    
+    if (config === 1) {
+      this.criticalDamageConfig1 = criticalDamageData;
+      this.notifyListeners('criticalDamageConfig1Changed', this.criticalDamageConfig1);
+    } else if (config === 2) {
+      this.criticalDamageConfig2 = criticalDamageData;
+      this.notifyListeners('criticalDamageConfig2Changed', this.criticalDamageConfig2);
+    }
   },
   
   /**
    * 設置適應力數據
    * @param {Object} data - 包含 panel, gathering_place, adapt_potion, super_adapt, preset
+   * @param {number} config - 配置號 (1 或 2)
    */
-  setAdaptability(data) {
-    this.adaptability = {
+  setAdaptability(data, config) {
+    const adaptabilityData = {
       panel: data.panel || 0,
       gathering_place: data.gathering_place || false,
       adapt_potion: data.adapt_potion || false,
       super_adapt: data.super_adapt || 0,
       preset: data.preset || '95'
     };
-    this.notifyListeners('adaptabilityChanged', this.adaptability);
+    
+    if (config === 1) {
+      this.adaptabilityConfig1 = adaptabilityData;
+      this.notifyListeners('adaptabilityConfig1Changed', this.adaptabilityConfig1);
+    } else if (config === 2) {
+      this.adaptabilityConfig2 = adaptabilityData;
+      this.notifyListeners('adaptabilityConfig2Changed', this.adaptabilityConfig2);
+    }
+  },
+  
+  /**
+   * 設置Boss傷害數據
+   * @param {Object} data - { value, guild_skill }
+   * @param {number} config - 配置號 (1 或 2)
+   */
+  setBossDamage(data, config) {
+    const bossDamageData = {
+      value: data.value || 0,
+      guild_skill: data.guild_skill || false
+    };
+    
+    if (config === 1) {
+      this.bossDamageConfig1 = bossDamageData;
+      this.notifyListeners('bossDamageConfig1Changed', this.bossDamageConfig1);
+    } else if (config === 2) {
+      this.bossDamageConfig2 = bossDamageData;
+      this.notifyListeners('bossDamageConfig2Changed', this.bossDamageConfig2);
+    }
   },
   
   /**
@@ -177,8 +241,12 @@ const StatStore = {
       config1Product: this.config1Product,
       config2Product: this.config2Product,
       ratioValue: this.ratioValue,
-      criticalDamage: this.criticalDamage,
-      adaptability: this.adaptability,
+      criticalDamageConfig1: this.criticalDamageConfig1,
+      criticalDamageConfig2: this.criticalDamageConfig2,
+      adaptabilityConfig1: this.adaptabilityConfig1,
+      adaptabilityConfig2: this.adaptabilityConfig2,
+      bossDamageConfig1: this.bossDamageConfig1,
+      bossDamageConfig2: this.bossDamageConfig2,
       timestamp: Date.now()
     };
   },
@@ -246,11 +314,23 @@ const StatStore = {
       this.ratioValue = data.ratioValue || '-';
       
       // 恢復特殊項目數據
-      if (data.criticalDamage) {
-        this.criticalDamage = data.criticalDamage;
+      if (data.criticalDamageConfig1) {
+        this.criticalDamageConfig1 = data.criticalDamageConfig1;
       }
-      if (data.adaptability) {
-        this.adaptability = data.adaptability;
+      if (data.criticalDamageConfig2) {
+        this.criticalDamageConfig2 = data.criticalDamageConfig2;
+      }
+      if (data.adaptabilityConfig1) {
+        this.adaptabilityConfig1 = data.adaptabilityConfig1;
+      }
+      if (data.adaptabilityConfig2) {
+        this.adaptabilityConfig2 = data.adaptabilityConfig2;
+      }
+      if (data.bossDamageConfig1) {
+        this.bossDamageConfig1 = data.bossDamageConfig1;
+      }
+      if (data.bossDamageConfig2) {
+        this.bossDamageConfig2 = data.bossDamageConfig2;
       }
       
       this.notifyListeners('loaded', { 

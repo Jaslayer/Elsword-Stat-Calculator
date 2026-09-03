@@ -25,28 +25,32 @@ function syncInputToDisplay(element = null) {
       return;
     }
     
-    // 特殊處理複雜項目（stat-1 適應力，stat-2 致命一擊傷害）
-    if (index === 1 || index === 2) {
+    // 特殊處理複雜項目（stat-1 適應力，stat-2 致命一擊傷害，stat-4 Boss 傷害）
+    if (index === 1 || index === 2 || index === 4) {
       // 複雜項目：從 button.dataset.value 解析並同步到 StatStore
       try {
         const data = JSON.parse(element.dataset.value || '{}');
         let calculatedValue = 0;
         
         if (index === 1) {
-          // 適應力：同步到 StatStore.adaptability 和 config values
-          window.StatStore.setAdaptability(data);
+          // 適應力：根據 config 分別同步到對應的 store
+          window.StatStore.setAdaptability(data, config);
           calculatedValue = window.ComputeEngine?.calculateAdaptabilityValue?.(data) ?? data.panel ?? 0;
           
-          // 💡 檢測是否只有 preset（環境debuff）字段變化
+          // 💡 検測是否只有 preset（環境debuff）字段變化
           if (element.dataset.fieldChanged === 'preset') {
             // 同步 preset 值到另一個 config 的適應力
             _syncAdaptabilityPreset(config, data.preset);
             console.log(`✅ 適應力 preset 同步: config${config} 的 preset 已同步到 config${config === 1 ? 2 : 1}`);
           }
         } else if (index === 2) {
-          // 致命一擊傷害：同步到 StatStore.criticalDamage 和 config values
-          window.StatStore.setCriticalDamage(data);
+          // 致命一擊傷害：根據 config 分別同步到對應的 store
+          window.StatStore.setCriticalDamage(data, config);
           calculatedValue = window.ComputeEngine?.calculateCriticalDamageValue?.(data) ?? data.panel ?? 0;
+        } else if (index === 4) {
+          // Boss 傷害：根據 config 分別同步到對應的 store
+          window.StatStore.setBossDamage(data, config);
+          calculatedValue = window.ComputeEngine?.calculateBossDamageValue?.(data) ?? data.value ?? 0;
         }
         
         // 💡 關鍵修復：同時更新 config values Maps，使乘積計算能讀到值
@@ -76,18 +80,21 @@ function syncInputToDisplay(element = null) {
     
     config1Elements.forEach(el => {
       const index = parseInt(el.dataset.index);
-      if (index === 1 || index === 2) {
+      if (index === 1 || index === 2 || index === 4) {
         // 複雜項目：從 dataset.value 解析並計算
         try {
           const data = JSON.parse(el.dataset.value || '{}');
           let calculatedValue = 0;
           
           if (index === 1) {
-            window.StatStore.setAdaptability(data);
+            window.StatStore.setAdaptability(data, 1);
             calculatedValue = window.ComputeEngine?.calculateAdaptabilityValue?.(data) ?? data.panel ?? 0;
           } else if (index === 2) {
-            window.StatStore.setCriticalDamage(data);
+            window.StatStore.setCriticalDamage(data, 1);
             calculatedValue = window.ComputeEngine?.calculateCriticalDamageValue?.(data) ?? data.panel ?? 0;
+          } else if (index === 4) {
+            window.StatStore.setBossDamage(data, 1);
+            calculatedValue = window.ComputeEngine?.calculateBossDamageValue?.(data) ?? data.value ?? 0;
           }
           window.StatStore.setConfig1Value(index, calculatedValue);
         } catch (e) {
@@ -102,18 +109,21 @@ function syncInputToDisplay(element = null) {
     
     config2Elements.forEach(el => {
       const index = parseInt(el.dataset.index);
-      if (index === 1 || index === 2) {
+      if (index === 1 || index === 2 || index === 4) {
         // 複雜項目：從 dataset.value 解析並計算
         try {
           const data = JSON.parse(el.dataset.value || '{}');
           let calculatedValue = 0;
           
           if (index === 1) {
-            window.StatStore.setAdaptability(data);
+            window.StatStore.setAdaptability(data, 2);
             calculatedValue = window.ComputeEngine?.calculateAdaptabilityValue?.(data) ?? data.panel ?? 0;
           } else if (index === 2) {
-            window.StatStore.setCriticalDamage(data);
+            window.StatStore.setCriticalDamage(data, 2);
             calculatedValue = window.ComputeEngine?.calculateCriticalDamageValue?.(data) ?? data.panel ?? 0;
+          } else if (index === 4) {
+            window.StatStore.setBossDamage(data, 2);
+            calculatedValue = window.ComputeEngine?.calculateBossDamageValue?.(data) ?? data.value ?? 0;
           }
           window.StatStore.setConfig2Value(index, calculatedValue);
         } catch (e) {
@@ -265,35 +275,39 @@ function _restoreSpecialItemsToDOM() {
   const store = window.StatStore;
   
   console.log('🔍 _restoreSpecialItemsToDOM 開始');
-  console.log('   store.criticalDamage:', store.criticalDamage);
-  console.log('   store.adaptability:', store.adaptability);
+  console.log('   store.criticalDamageConfig1:', store.criticalDamageConfig1);
+  console.log('   store.criticalDamageConfig2:', store.criticalDamageConfig2);
+  console.log('   store.adaptabilityConfig1:', store.adaptabilityConfig1);
+  console.log('   store.adaptabilityConfig2:', store.adaptabilityConfig2);
   
   // 恢復複雜項目到按鈕的 dataset.value 中
   // 注意：button.dataset.value 是獨立的，左右按鈕各自維護
   
-  // 恢復致命一擊傷害
-  if (store.criticalDamage && Object.keys(store.criticalDamage).length > 0) {
+  // 恢復致命一擊傷害（config1）
+  if (store.criticalDamageConfig1 && Object.keys(store.criticalDamageConfig1).length > 0) {
     const criticalDamageLeft = document.getElementById('stat-2-left');
     if (criticalDamageLeft) {
-      const serialized = serializeCriticalDamage(store.criticalDamage);
+      const serialized = serializeCriticalDamage(store.criticalDamageConfig1);
       if (criticalDamageLeft.classList.contains('button-input')) {
         criticalDamageLeft.dataset.value = serialized;
-        const displayValue = store.criticalDamage.panel || 0;
+        const displayValue = store.criticalDamageConfig1.panel || 0;
         criticalDamageLeft.textContent = displayValue === 0 ? '' : displayValue;
       } else {
         criticalDamageLeft.value = serialized;
       }
     }
-    
-    // 右側按鈕：計算結果
+  }
+  
+  // 恢復致命一擊傷害（config2）
+  if (store.criticalDamageConfig2 && Object.keys(store.criticalDamageConfig2).length > 0) {
     const criticalDamageResult = document.getElementById('stat-2-result');
     if (criticalDamageResult) {
       const resultValue = window.ComputeEngine?.calculateCriticalDamageValue 
-        ? window.ComputeEngine.calculateCriticalDamageValue(store.criticalDamage)
-        : store.criticalDamage.panel;
+        ? window.ComputeEngine.calculateCriticalDamageValue(store.criticalDamageConfig2)
+        : store.criticalDamageConfig2.panel;
       
       if (criticalDamageResult.classList.contains('button-input')) {
-        criticalDamageResult.dataset.value = serializeCriticalDamage(store.criticalDamage);
+        criticalDamageResult.dataset.value = serializeCriticalDamage(store.criticalDamageConfig2);
         criticalDamageResult.textContent = resultValue === 0 ? '' : resultValue;
       } else {
         criticalDamageResult.value = resultValue === 0 ? '' : resultValue;
@@ -301,32 +315,66 @@ function _restoreSpecialItemsToDOM() {
     }
   }
   
-  // 恢復適應力
-  if (store.adaptability && Object.keys(store.adaptability).length > 0) {
+  // 恢復適應力（config1）
+  if (store.adaptabilityConfig1 && Object.keys(store.adaptabilityConfig1).length > 0) {
     const adaptabilityLeft = document.getElementById('stat-1-left');
     if (adaptabilityLeft) {
-      const serialized = serializeAdaptability(store.adaptability);
+      const serialized = serializeAdaptability(store.adaptabilityConfig1);
       if (adaptabilityLeft.classList.contains('button-input')) {
         adaptabilityLeft.dataset.value = serialized;
-        const displayValue = store.adaptability.panel || 0;
+        const displayValue = store.adaptabilityConfig1.panel || 0;
         adaptabilityLeft.textContent = displayValue === 0 ? '' : displayValue;
       } else {
         adaptabilityLeft.value = serialized;
       }
     }
-    
-    // 右側按鈕：計算結果
+  }
+  
+  // 恢復適應力（config2）
+  if (store.adaptabilityConfig2 && Object.keys(store.adaptabilityConfig2).length > 0) {
     const adaptabilityResult = document.getElementById('stat-1-result');
     if (adaptabilityResult) {
       const resultValue = window.ComputeEngine?.calculateAdaptabilityValue 
-        ? window.ComputeEngine.calculateAdaptabilityValue(store.adaptability)
-        : store.adaptability.panel;
+        ? window.ComputeEngine.calculateAdaptabilityValue(store.adaptabilityConfig2)
+        : store.adaptabilityConfig2.panel;
       
       if (adaptabilityResult.classList.contains('button-input')) {
-        adaptabilityResult.dataset.value = serializeAdaptability(store.adaptability);
+        adaptabilityResult.dataset.value = serializeAdaptability(store.adaptabilityConfig2);
         adaptabilityResult.textContent = resultValue === 0 ? '' : resultValue;
       } else {
         adaptabilityResult.value = resultValue === 0 ? '' : resultValue;
+      }
+    }
+  }
+  
+  // 恢復 Boss 傷害（config1）
+  if (store.bossDamageConfig1 && Object.keys(store.bossDamageConfig1).length > 0) {
+    const bossDamageLeft = document.getElementById('stat-4-left');
+    if (bossDamageLeft) {
+      const serialized = serializeBossDamage(store.bossDamageConfig1);
+      if (bossDamageLeft.classList.contains('button-input')) {
+        bossDamageLeft.dataset.value = serialized;
+        const displayValue = store.bossDamageConfig1.value || 0;
+        bossDamageLeft.textContent = displayValue === 0 ? '' : displayValue;
+      } else {
+        bossDamageLeft.value = serialized;
+      }
+    }
+  }
+  
+  // 恢復 Boss 傷害（config2）
+  if (store.bossDamageConfig2 && Object.keys(store.bossDamageConfig2).length > 0) {
+    const bossDamageResult = document.getElementById('stat-4-result');
+    if (bossDamageResult) {
+      const resultValue = window.ComputeEngine?.calculateBossDamageValue 
+        ? window.ComputeEngine.calculateBossDamageValue(store.bossDamageConfig2)
+        : store.bossDamageConfig2.value;
+      
+      if (bossDamageResult.classList.contains('button-input')) {
+        bossDamageResult.dataset.value = serializeBossDamage(store.bossDamageConfig2);
+        bossDamageResult.textContent = resultValue === 0 ? '' : resultValue;
+      } else {
+        bossDamageResult.value = resultValue === 0 ? '' : resultValue;
       }
     }
   }
@@ -357,6 +405,17 @@ function serializeAdaptability(adaptData) {
     adapt_potion: adaptData.adapt_potion || false,
     super_adapt: adaptData.super_adapt || 0,
     preset: adaptData.preset || '95'
+  });
+}
+
+/**
+ * 序列化 Boss 傷害數據為 JSON 字符串
+ * @private
+ */
+function serializeBossDamage(bossDamageData) {
+  return JSON.stringify({
+    value: bossDamageData.value || 0,
+    guild_skill: bossDamageData.guild_skill || false
   });
 }
 
@@ -393,8 +452,8 @@ function updateButtonDisplays() {
       let value;
       
       // 特殊處理複雜項目
-      if (index === 1 || index === 2) {
-        // 適應力或致命一擊傷害：從 button.dataset.value 解析並計算結果值
+      if (index === 1 || index === 2 || index === 4) {
+        // 適應力、致命一擊傷害、Boss傷害：從 button.dataset.value 解析並計算結果值
         try {
           const data = JSON.parse(button.dataset.value || '{}');
           if (index === 1) {
@@ -403,6 +462,9 @@ function updateButtonDisplays() {
           } else if (index === 2) {
             // 致命一擊傷害：計算結果值
             value = window.ComputeEngine?.calculateCriticalDamageValue?.(data) ?? data.panel ?? 0;
+          } else if (index === 4) {
+            // Boss傷害：計算結果值
+            value = window.ComputeEngine?.calculateBossDamageValue?.(data) ?? data.value ?? 0;
           }
         } catch (e) {
           value = 0;
@@ -437,6 +499,14 @@ function updateButtonDisplays() {
         try {
           const data = JSON.parse(button.dataset.value || '{}');
           value = window.ComputeEngine?.calculateCriticalDamageValue?.(data) ?? data.panel ?? 0;
+        } catch (e) {
+          value = 0;
+        }
+      } else if (index === 4) {
+        // Boss傷害：從按鈕的 dataset.value 解析並計算結果
+        try {
+          const data = JSON.parse(button.dataset.value || '{}');
+          value = window.ComputeEngine?.calculateBossDamageValue?.(data) ?? data.value ?? 0;
         } catch (e) {
           value = 0;
         }
@@ -670,25 +740,69 @@ function _syncElementsToStore(selector, idPattern, setterFn) {
  * @private
  */
 function _syncComplexItemsToStore() {
-  // 同步適應力 (stat-1)
+  // 同步適應力 (stat-1-left, config1)
   const adaptabilityLeft = document.getElementById('stat-1-left');
   if (adaptabilityLeft && adaptabilityLeft.dataset.value) {
     try {
       const data = JSON.parse(adaptabilityLeft.dataset.value);
-      window.StatStore.setAdaptability(data);
+      window.StatStore.setAdaptability(data, 1);
     } catch (e) {
       console.warn('Failed to sync adaptability from stat-1-left:', e);
     }
   }
   
-  // 同步致命一擊傷害 (stat-2)
+  // 同步適應力 (stat-1-result, config2)
+  const adaptabilityResult = document.getElementById('stat-1-result');
+  if (adaptabilityResult && adaptabilityResult.dataset.value) {
+    try {
+      const data = JSON.parse(adaptabilityResult.dataset.value);
+      window.StatStore.setAdaptability(data, 2);
+    } catch (e) {
+      console.warn('Failed to sync adaptability from stat-1-result:', e);
+    }
+  }
+  
+  // 同步致命一擊傷害 (stat-2-left, config1)
   const criticalDamageLeft = document.getElementById('stat-2-left');
   if (criticalDamageLeft && criticalDamageLeft.dataset.value) {
     try {
       const data = JSON.parse(criticalDamageLeft.dataset.value);
-      window.StatStore.setCriticalDamage(data);
+      window.StatStore.setCriticalDamage(data, 1);
     } catch (e) {
       console.warn('Failed to sync critical damage from stat-2-left:', e);
+    }
+  }
+  
+  // 同步致命一擊傷害 (stat-2-result, config2)
+  const criticalDamageResult = document.getElementById('stat-2-result');
+  if (criticalDamageResult && criticalDamageResult.dataset.value) {
+    try {
+      const data = JSON.parse(criticalDamageResult.dataset.value);
+      window.StatStore.setCriticalDamage(data, 2);
+    } catch (e) {
+      console.warn('Failed to sync critical damage from stat-2-result:', e);
+    }
+  }
+  
+  // 同步 Boss 傷害 (stat-4-left, config1)
+  const bossDamageLeft = document.getElementById('stat-4-left');
+  if (bossDamageLeft && bossDamageLeft.dataset.value) {
+    try {
+      const data = JSON.parse(bossDamageLeft.dataset.value);
+      window.StatStore.setBossDamage(data, 1);
+    } catch (e) {
+      console.warn('Failed to sync boss damage from stat-4-left:', e);
+    }
+  }
+  
+  // 同步 Boss 傷害 (stat-4-result, config2)
+  const bossDamageResult = document.getElementById('stat-4-result');
+  if (bossDamageResult && bossDamageResult.dataset.value) {
+    try {
+      const data = JSON.parse(bossDamageResult.dataset.value);
+      window.StatStore.setBossDamage(data, 2);
+    } catch (e) {
+      console.warn('Failed to sync boss damage from stat-4-result:', e);
     }
   }
 }

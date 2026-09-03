@@ -110,7 +110,31 @@ const SPECIAL_DIALOGS = {
   },
   
   // 4: Boss 傷害
-  4: createSimpleNumberConfig(4, 'Boss 傷害'),
+  4: {
+    type: 'multi-field',
+    dialogId: 'bossDamageInputDialog',
+    fields: [
+      {
+        name: 'value',
+        type: 'number',
+        label: 'Boss 傷害',
+        className: 'boss-damage-value-input',
+        minValue: 0
+      },
+      {
+        name: 'guild_skill',
+        type: 'checkbox',
+        label: '公會技能 (2.5%)',
+        className: 'boss-damage-guild-skill',
+        defaultValue: false
+      }
+    ],
+    separator: '',
+    displayField: 'value',
+    parse: (value) => JSON.parse(value || '{"value":0,"guild_skill":false}'),
+    serialize: (values) => JSON.stringify(values),
+    getDisplayValue: (values) => String(values.value)
+  },
   
   // 5: 50%以上/以下
   5: createSimpleNumberConfig(5, '50%以上/以下'),
@@ -530,8 +554,9 @@ function openSpecialDialog(button, type, index, panelDiv, config, spinnerIncreme
     if (config.type === 'simple-number') {
       parsedValues.value = Math.max(0, parsedValues.value + spinnerIncrement);
     } else if (config.type === 'multi-field') {
-      // ★ 移除最大值限制：輸入階段允許任意值
-      parsedValues.panel = Math.max(0, parsedValues.panel + spinnerIncrement);
+      // ★ 統一使用 displayField 作為主字段處理 spinner 增量
+      const mainField = config.displayField;
+      parsedValues[mainField] = Math.max(0, (parsedValues[mainField] || 0) + spinnerIncrement);
     }
   }
   
@@ -597,9 +622,9 @@ function openSpecialDialog(button, type, index, panelDiv, config, spinnerIncreme
     // 如果顯示值為0或'0'，保持空白；否則顯示值
     button.textContent = (displayValue === 0 || displayValue === '0') ? '' : displayValue;
     
-    // 對於複雜項目（stat-1 和 stat-2），呼叫 syncInputToDisplay 保留完整的序列化數據
+    // 對於複雜項目（stat-1 適應力、stat-2 致命一擊傷害、stat-4 Boss傷害），呼叫 syncInputToDisplay 保留完整的序列化數據
     // 對於簡單項目，呼叫 syncStatUpdate
-    if (index === 1 || index === 2) {
+    if (index === 1 || index === 2 || index === 4) {
       // 複雜項目：直接呼叫 syncInputToDisplay 避免 syncStatUpdate 的格式覆蓋
       if (window.syncInputToDisplay && typeof window.syncInputToDisplay === 'function') {
         // 確保使用 setTimeout 確保 DOM 更新後再調用

@@ -73,7 +73,9 @@ const ComputeEngine = {
         case STAT_ITEMS.ADAPTABILITY: {
           // 適應力特殊處理：min(100-環境debuff+(超)適應力最終值,100)/100
           const adaptValue = value || 0;
-          const preset = store && store.adaptability ? parseInt(store.adaptability.preset) || 0 : 0;
+          // 從 adaptabilityConfig1 或 adaptabilityConfig2 讀取 preset（兩者應同步）
+          const adaptConfig = store && store.adaptabilityConfig1 ? store.adaptabilityConfig1 : (store && store.adaptabilityConfig2 ? store.adaptabilityConfig2 : null);
+          const preset = adaptConfig ? parseInt(adaptConfig.preset) || 0 : 0;
           effectiveValue = Math.min(100 - preset + adaptValue, 100) / 100;
           break;
         }
@@ -307,6 +309,18 @@ const ComputeEngine = {
     // 新公式: 面板 + 150 * (乘算總乘積 - 1) + 加算總和
     const result = panel + 150 * (multiplicativeProduct - 1) + additiveSum;
     return utilsRoundNumber(result);
+  },
+
+  /**
+   * 計算 Boss 傷害值 - 純計算函數（用於按鈕顯示）
+   * @param {Object} values - 包含 value, guild_skill 的對象
+   * @returns {number} 計算結果
+   * 公式: value + (guild_skill ? 2.5 : 0)
+   */
+  calculateBossDamageValue(values) {
+    const baseValue = parseFloat(values.value) || 0;
+    const guildSkillBonus = values.guild_skill ? 2.5 : 0;
+    return utilsRoundNumber(baseValue + guildSkillBonus);
   },
   
   /**
