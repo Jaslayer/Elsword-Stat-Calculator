@@ -495,6 +495,49 @@ body {
   width: 140px;
 }
 
+.config-wrapper.config1-wrapper {
+  width: auto;
+  min-width: 140px;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+.config-wrapper.config2-wrapper {
+  width: auto;
+  min-width: 140px;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+.config-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  transition: all 200ms ease;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.config-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.config-btn:active {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(0.95);
+}
+
 /* 配置1 - 藍色背景 */
 .panel-row .config-wrapper:nth-child(2),
 .panel-header-row .config-wrapper:nth-child(2) {
@@ -658,9 +701,21 @@ body {
   font-size: 1.2rem;
   font-weight: 500;
   min-width: 150px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.25rem;
+  line-height: 1.2;
+}
+
+.panel-label div:first-child {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.panel-label div:last-child {
+  font-size: 0.85rem;
+  opacity: 0.7;
 }
 
 .short-input {

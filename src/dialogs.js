@@ -755,7 +755,7 @@ function openSpecialDialog(button, type, index, panelDiv, config, spinnerIncreme
 /**
  * 打開數字輸入對話框 - 統一入口
  * @param {Element} button - 被點擊的按鈕
- * @param {string} type - 'left' 或 'result'
+ * @param {string} type - 'config1' 或 'config2'
  * @param {number} index - 統計項目索引
  * @param {Element} panelDiv - 所屬的 panel 元素
  */

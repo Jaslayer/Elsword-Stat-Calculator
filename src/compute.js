@@ -332,8 +332,10 @@ const ComputeEngine = {
     const numberStr = String(numberValue);
     const length = numberStr.replace(/[^0-9]/g, '').length; // 只計算數字位數
     
-    if (length <= 8) return 30;
-    if (length <= 10) return 24;
+    if (length <= 6) return 30;
+    if (length === 7) return 26;
+    if (length <= 8) return 24;
+    if (length <= 10) return 18;
     if (length <= 12) return 14;
     return 12;
   },

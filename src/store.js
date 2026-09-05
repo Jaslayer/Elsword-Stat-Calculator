@@ -474,27 +474,27 @@ const StatStore = {
     
     panels.forEach(panel => {
       const itemIndex = parseInt(panel.dataset.index);
-      const leftInput = panel.querySelector('.left-input');
-      const resultInput = panel.querySelector('.result-input');
+      const config1Input = panel.querySelector('.config1-input');
+      const config2Input = panel.querySelector('.config2-input');
       
-      if (leftInput) {
+      if (config1Input) {
         let value;
         if (itemIndex === STAT_ITEMS.ADAPTABILITY) {
           const result = calculateAdaptabilityFn();
           value = result.config1;
         } else {
-          value = parseInputValueFn(leftInput);
+          value = parseInputValueFn(config1Input);
         }
         this.config1Values.set(itemIndex, value);
       }
       
-      if (resultInput) {
+      if (config2Input) {
         let value;
         if (itemIndex === STAT_ITEMS.ADAPTABILITY) {
           const result = calculateAdaptabilityFn();
           value = result.config2;
         } else {
-          value = parseInputValueFn(resultInput);
+          value = parseInputValueFn(config2Input);
         }
         this.config2Values.set(itemIndex, value);
       }

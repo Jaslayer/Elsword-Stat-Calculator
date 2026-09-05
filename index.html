@@ -39,12 +39,25 @@
           <div class="input-items-wrapper">
             <div class="input-panel-header">
               <div class="panel-header-row">
-                <div class="panel-label"></div>
-                <div class="config-wrapper">
-                  <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">配置 1</div>
+                <div class="panel-label">
+                  <div>選擇職業</div>
+                  <div>(暫未開放)</div>
                 </div>
-                <div class="config-wrapper">
-                  <div style="color: rgba(255, 255, 255, 0.7); text-align: center; width: 100px;">配置 2</div>
+                <div class="config-wrapper config1-wrapper" style="flex-direction: column;">
+                  <div class="config1-header-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 24px;">
+                    <button class="config-btn reset-btn" title="重置配置1" aria-label="重置配置1">🔄</button>
+                    <div style="color: rgba(255, 255, 255, 0.7); text-align: center; flex: 1;">配置 1</div>
+                    <button class="config-btn copy-btn" title="複製配置1到配置2" aria-label="複製配置1到配置2">📋</button>
+                  </div>
+                  <div class="config1-product-value" style="color: rgba(255, 255, 255, 0.9); text-align: center; margin-bottom: 4px; font-weight: 600;"></div>
+                </div>
+                <div class="config-wrapper config2-wrapper" style="flex-direction: column;">
+                  <div class="config2-header-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 24px;">
+                    <button class="config-btn copy-btn" title="複製配置2到配置1" aria-label="複製配置2到配置1">📋</button>
+                    <div style="color: rgba(255, 255, 255, 0.7); text-align: center; flex: 1;">配置 2</div>
+                    <button class="config-btn reset-btn" title="重置配置2" aria-label="重置配置2">🔄</button>
+                  </div>
+                  <div class="config2-product-value" style="color: rgba(255, 255, 255, 0.9); text-align: center; margin-bottom: 4px; font-weight: 600;"></div>
                 </div>
                 <div class="config-wrapper" style="flex-direction: column;">
                   <div style="display: flex; align-items: center; justify-content: center; gap: 10px; line-height: 1; height: 24px;">
@@ -110,34 +123,7 @@
           window.updateUserDataFromElement(element);
         }
 
-        // Step 3: 回到 index.html 更新顯示
-        // 統一更新三向綁定：從 DS 取值（由 compute.js 計算）
-        const middleInput = panelDiv.querySelector('.middle-input');
-        const middleIndicator = panelDiv.querySelector('.middle-indicator');
-        
-        if (middleInput && middleIndicator && window.ComputeEngine && window.StatStore) {
-          const statIndex = parseInt(panelDiv.dataset.index);
-          
-          // 從 DS 計算結果中取得 itemDeltas
-          const syncResult = window.ComputeEngine.normalSync(window.StatStore);
-          if (syncResult && syncResult.itemDeltas && syncResult.itemDeltas[statIndex] !== undefined) {
-            const deltaValue = syncResult.itemDeltas[statIndex];
-            middleInput.value = deltaValue === 0 ? '' : deltaValue;
-            
-            // 更新中間指示器
-            const middleValue = parseFloat(middleInput.value) || 0;
-            middleIndicator.classList.remove('positive', 'negative', 'zero');
-            if (middleValue > 0) {
-              middleIndicator.classList.add('positive');
-            } else if (middleValue < 0) {
-              middleIndicator.classList.add('negative');
-            } else {
-              middleIndicator.classList.add('zero');
-            }
-          }
-        }
-
-        // 更新產品顯示
+        // Step 3: 更新產品顯示（middle-indicator 由 interface.js 的 updateDeltaDisplays 統一處理）
         if (window.updateProductDisplay && typeof window.updateProductDisplay === 'function') {
           window.updateProductDisplay();
         }
@@ -441,19 +427,19 @@
             <div class="panel-row">
               <div class="panel-label">${statItem.textContent}</div>
               <div class="config-wrapper">
-                <label for="stat-${index}-left" class="sr-only">配置 1</label>
-                <button class="button-input left-input" id="stat-${index}-left" data-index="${index}" data-type="left" data-config="1" data-value='${initialValueJSON}' data-min="0"></button>
+                <label for="stat-${index}-config1" class="sr-only">配置 1</label>
+                <button class="button-input config1-input" id="stat-${index}-config1" data-index="${index}" data-type="config1" data-config="1" data-value='${initialValueJSON}' data-min="0"></button>
                 <div class="input-spinner">
-                  <button class="spinner-btn up" data-type="left" data-index="${index}">∧</button>
-                  <button class="spinner-btn down" data-type="left" data-index="${index}">∨</button>
+                  <button class="spinner-btn up" data-type="config1" data-index="${index}">∧</button>
+                  <button class="spinner-btn down" data-type="config1" data-index="${index}">∨</button>
                 </div>
               </div>
               <div class="config-wrapper">
-                <label for="stat-${index}-result" class="sr-only">配置 2</label>
-                <button class="button-input result-input" id="stat-${index}-result" data-index="${index}" data-type="result" data-config="2" data-value='${initialValueJSON}' data-min="0"></button>
+                <label for="stat-${index}-config2" class="sr-only">配置 2</label>
+                <button class="button-input config2-input" id="stat-${index}-config2" data-index="${index}" data-type="config2" data-config="2" data-value='${initialValueJSON}' data-min="0"></button>
                 <div class="input-spinner">
-                  <button class="spinner-btn up" data-type="result" data-index="${index}">∧</button>
-                  <button class="spinner-btn down" data-type="result" data-index="${index}">∨</button>
+                  <button class="spinner-btn up" data-type="config2" data-index="${index}">∧</button>
+                  <button class="spinner-btn down" data-type="config2" data-index="${index}">∨</button>
                 </div>
               </div>
               <div class="config-wrapper">
@@ -470,19 +456,19 @@
             <div class="panel-row">
               <div class="panel-label">${statItem.textContent}</div>
               <div class="config-wrapper">
-                <label for="stat-${index}-left" class="sr-only">配置 1</label>
-                <input type="number" class="stat-input short-input left-input" data-index="${index}" data-config="1" min="0" id="stat-${index}-left" name="stat-${index}-left" />
+                <label for="stat-${index}-config1" class="sr-only">配置 1</label>
+                <input type="number" class="stat-input short-input config1-input" data-index="${index}" data-config="1" min="0" id="stat-${index}-config1" name="stat-${index}-config1" />
                 <div class="input-spinner">
-                  <button class="spinner-btn up" data-type="left" data-index="${index}">∧</button>
-                  <button class="spinner-btn down" data-type="left" data-index="${index}">∨</button>
+                  <button class="spinner-btn up" data-type="config1" data-index="${index}">∧</button>
+                  <button class="spinner-btn down" data-type="config1" data-index="${index}">∨</button>
                 </div>
               </div>
               <div class="config-wrapper">
-                <label for="stat-${index}-result" class="sr-only">配置 2</label>
-                <input type="number" class="stat-input short-input result-input" data-index="${index}" data-config="2" min="0" id="stat-${index}-result" name="stat-${index}-result" />
+                <label for="stat-${index}-config2" class="sr-only">配置 2</label>
+                <input type="number" class="stat-input short-input config2-input" data-index="${index}" data-config="2" min="0" id="stat-${index}-config2" name="stat-${index}-config2" />
                 <div class="input-spinner">
-                  <button class="spinner-btn up" data-type="result" data-index="${index}">∧</button>
-                  <button class="spinner-btn down" data-type="result" data-index="${index}">∨</button>
+                  <button class="spinner-btn up" data-type="config2" data-index="${index}">∧</button>
+                  <button class="spinner-btn down" data-type="config2" data-index="${index}">∨</button>
                 </div>
               </div>
               <div class="config-wrapper">
@@ -524,9 +510,9 @@
         }
         
         // 綁定計算事件 - 三向绑定逻辑
-        const leftInput = panelDiv.querySelector('.left-input');
+        const config1Input = panelDiv.querySelector('.config1-input');
         const middleInput = panelDiv.querySelector('.middle-input');
-        const resultInput = panelDiv.querySelector('.result-input');
+        const config2Input = panelDiv.querySelector('.config2-input');
         const middleIndicator = panelDiv.querySelector('.middle-indicator');
         
         // 獲取輸入值的輔助函數 - 直接調用 interface.js 的 computeInputValue（已統一集中計算邏輯）
@@ -564,40 +550,40 @@
         
         // 為按鈕型輸入框添加事件處理
         if (useButtonInput) {
-          const leftBtn = panelDiv.querySelector('.left-input');
-          const resultBtn = panelDiv.querySelector('.result-input');
+          const config1Btn = panelDiv.querySelector('.config1-input');
+          const config2Btn = panelDiv.querySelector('.config2-input');
           
           // 將三向綁定函數存儲在 panelDiv 上，供對話框使用
           panelDiv.getInputValue = getInputValue;
           panelDiv.setInputValue = setInputValue;
-          panelDiv.leftInput = leftInput;
-          panelDiv.resultInput = resultInput;
+          panelDiv.config1Input = config1Input;
+          panelDiv.config2Input = config2Input;
           panelDiv.middleInput = middleInput;
           
-          leftBtn.addEventListener('click', () => {
-            openNumberInputDialog(leftBtn, 'left', index, panelDiv);
+          config1Btn.addEventListener('click', () => {
+            openNumberInputDialog(config1Btn, 'config1', index, panelDiv);
           });
           
-          resultBtn.addEventListener('click', () => {
-            openNumberInputDialog(resultBtn, 'result', index, panelDiv);
+          config2Btn.addEventListener('click', () => {
+            openNumberInputDialog(config2Btn, 'config2', index, panelDiv);
           });
         }
         
         // 配置1 改變 → 變動量 = 配置2 - 配置1
-        if (leftInput.classList.contains('button-input')) {
+        if (config1Input.classList.contains('button-input')) {
           // 按鈕型輸入框不需要綁定 input 事件
         } else {
-          leftInput.addEventListener('input', () => {
-            syncStatUpdate(leftInput);
+          config1Input.addEventListener('input', () => {
+            syncStatUpdate(config1Input);
           });
         }
         
         // 配置2 改變 → 變動量 = 配置2 - 配置1
-        if (resultInput.classList.contains('button-input')) {
+        if (config2Input.classList.contains('button-input')) {
           // 按鈕型輸入框不需要綁定 input 事件
         } else {
-          resultInput.addEventListener('input', () => {
-            syncStatUpdate(resultInput);
+          config2Input.addEventListener('input', () => {
+            syncStatUpdate(config2Input);
           });
         }
         
@@ -613,10 +599,10 @@
             const increment = isUp ? 1 : -1;
             
             let inputElement;
-            if (dataType === 'left') {
-              inputElement = leftInput;
-            } else if (dataType === 'result') {
-              inputElement = resultInput;
+            if (dataType === 'config1') {
+              inputElement = config1Input;
+            } else if (dataType === 'config2') {
+              inputElement = config2Input;
             }
             
             if (inputElement) {
